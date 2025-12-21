@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Agenda semanal - Homem.com Agenda</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet">
+    <style>
+        body {
+            background-color: #f5f5f5;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .app-header {
+            background: #0b1c3f;
+            color: #fff;
+            padding: 0.75rem 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .app-main {
+            padding: 1rem;
+            max-width: 960px;
+            margin: 0 auto;
+        }
+        .day-card {
+            border-radius: 14px;
+            border: none;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+            margin-bottom: 1rem;
+        }
+        .appt-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.35rem 0;
+            border-bottom: 1px solid #f0f0f0;
+            gap: .5rem;
+        }
+        .appt-row:last-child {
+            border-bottom: none;
+        }
+        .appt-time {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .appt-client {
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        .appt-service {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+        .appt-value {
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        .badge-status {
+            font-size: 0.7rem;
+            border-radius: 999px;
+            padding: 0.15rem 0.5rem;
+        }
+        .total-dia {
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .appt-actions a {
+            margin-left: .25rem;
+            margin-top: .15rem;
+        }
+        @media (max-width: 576px) {
+            .appt-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .appt-actions {
+                width: 100%;
+            }
+            .appt-actions a {
+                width: 49%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<header class="app-header">
+    <div>
+        <strong>Homem.com Agenda</strong><br>
+        <small>{{ barbearia.nome }}</small>
+    </div>
+    <div>
+        <a href="{% url 'homemcom_dashboard' %}" class="btn btn-sm btn-light">
+            ← Hoje
+        </a>
+    </div>
+</header>
+
+<main class="app-main">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h5 class="mb-0">
+                Semana de {{ inicio_semana|date:"d/m" }} a {{ fim_semana|date:"d/m" }}
+            </h5>
+            <small class="text-muted">
+                Hoje: {{ hoje|date:"l, d/m" }}
+            </small>
+        </div>
+        <div class="btn-group">
+            <a href="{% url 'homemcom_semana' %}?ref={{ prev_ref|date:'Y-m-d' }}"
+               class="btn btn-sm btn-outline-secondary">
+                ← Semana anterior
+            </a>
+            <a href="{% url 'homemcom_semana' %}?ref={{ next_ref|date:'Y-m-d' }}"
+               class="btn btn-sm btn-outline-secondary">
+                Próxima semana →
+            </a>
+        </div>
+    </div>
+
+    {% for dia in dias_semana %}
+        <div class="card day-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>
+                        {{ dia.data|date:"l" }}
+                    </strong>
+                    <span class="text-muted">
+                        • {{ dia.data|date:"d/m" }}
+                    </span>
+                    {% if dia.data == hoje %}
+                        <span class="badge bg-primary ms-1">Hoje</span>
+                    {% endif %}
+                </div>
+                <div class="text-end">
+                    <div class="total-dia">
+                        Total do dia: R$ {{ dia.total_dia|default:"0,00" }}
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if dia.agendamentos %}
+                    {% for ag in dia.agendamentos %}
+                        <div class="appt-row">
+                            <div>
+                                <div class="appt-time">
+                                    {{ ag.inicio|date:"H:i" }}
+                                </div>
+                                <div class="appt-client">
+                                    {{ ag.cliente.nome|default:"Cliente" }}
+                                </div>
+                                <div class="appt-service">
+                                    {{ ag.servico.nome }} • {{ ag.servico.duracao_minutos }} min
+                                </div>
+                            </div>
+                            <div class="text-end appt-actions">
+                                <div class="appt-value">
+                                    R$ {{ ag.valor_no_momento }}
+                                </div>
+                                <div class="mb-1">
+                                    {% if ag.status == "confirmado" %}
+                                        <span class="badge-status bg-success text-white">Confirmado</span>
+                                    {% elif ag.status == "aguardando" %}
+                                        <span class="badge-status bg-warning text-dark">Aguardando</span>
+                                    {% else %}
+                                        <span class="badge-status bg-secondary text-white">Cancelado</span>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <a href="{% url 'homemcom_cancelar_agendamento' ag.id %}"
+                                       class="btn btn-sm btn-outline-danger">
+                                        Cancelar
+                                    </a>
+                                    <a href="{% url 'homemcom_remarcar_agendamento' ag.id %}"
+                                       class="btn btn-sm btn-outline-secondary">
+                                        Remarcar
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted mb-0">
+                        Nenhum agendamento para este dia.
+                    </p>
+                {% endif %}
+            </div>
+        </div>
+    {% endfor %}
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
