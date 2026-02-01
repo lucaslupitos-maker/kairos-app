@@ -110,14 +110,6 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'homemcom_dashboard'
 LOGOUT_REDIRECT_URL = 'login'
 
-import os
-from pathlib import Path
-
-DEBUG = os.getenv("DEBUG", "0") == "1"
-
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",") if os.getenv("ALLOWED_HOSTS") else ["*"]
-
-CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if os.getenv("CSRF_TRUSTED_ORIGINS") else []
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
