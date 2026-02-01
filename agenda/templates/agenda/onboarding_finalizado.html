@@ -1,0 +1,112 @@
+{% extends "agenda/base.html" %}
+{% load static %}
+
+{% block title %}Onboarding finalizado | Kairós.app{% endblock %}
+
+{% block content %}
+<div class="ka-onboarding-final">
+
+  <div class="row justify-content-center">
+    <div class="col-12 col-lg-9 col-xl-8">
+
+      <div class="card shadow-sm border-0 ka-card overflow-hidden">
+        <div class="ka-hero p-4 p-lg-5">
+          <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start gap-4">
+            <div>
+              <h2 class="fw-bold mb-2">Pronto! Sua Loja está no ar 🚀</h2>
+              <p class="mb-0 opacity-75">
+                Agora você já pode compartilhar seu link e receber agendamentos automaticamente.
+              </p>
+            </div>
+            <div class="ka-badge">
+              <span class="me-1">✅</span> Configurado
+            </div>
+          </div>
+        </div>
+
+        <div class="card-body p-4 p-lg-5">
+          <h6 class="fw-bold mb-2">Seu link de agendamento público</h6>
+          <p class="text-muted mb-3">
+            Copie e envie no WhatsApp, Instagram, bio, onde você quiser.
+          </p>
+
+          <div class="input-group input-group-lg mb-3">
+            <input id="publicLink" type="text" class="form-control" value="{{ link_publico }}" readonly>
+            <button class="ka-btn ka-btn-primary" type="button" onclick="copyLink()">
+              📋 Copiar
+            </button>
+          </div>
+
+          <div class="d-flex flex-column flex-md-row gap-2 mt-3">
+            <a class="btn btn-success btn-lg px-4" href="{% url 'homemcom_dashboard' %}">
+              Ir para o Dashboard →
+            </a>
+
+            <a class="btn btn-outline-dark btn-lg px-4" href="{{ link_publico }}" target="_blank" rel="noopener">
+              Testar link como cliente 🔎
+            </a>
+          </div>
+
+          <hr class="my-4">
+
+          <div class="row g-3">
+            <div class="col-12 col-md-6">
+              <div class="p-3 rounded-4 border bg-light h-100">
+                <div class="fw-semibold mb-1">Checklist final</div>
+                <ul class="small text-muted mb-0">
+                  <li>Serviços cadastrados</li>
+                  <li>Horários configurados</li>
+                  <li>Link público gerado</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="col-12 col-md-6">
+              <div class="p-3 rounded-4 border bg-light h-100">
+                <div class="fw-semibold mb-1">Próximos passos</div>
+                <ul class="small text-muted mb-0">
+                  <li>Cadastre produtos (opcional)</li>
+                  <li>Compartilhe o link</li>
+                  <li>Comece a registrar vendas</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="alert alert-info mt-4 mb-0">
+            <strong>Dica:</strong> coloque esse link na bio do Instagram e fixe no WhatsApp.
+            O Kairós trabalha enquanto você faz barba. (Sim, ele não reclama e nem pede café 😂)
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  function copyLink(){
+    const el = document.getElementById("publicLink");
+    el.select();
+    el.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(el.value);
+  }
+</script>
+
+<style>
+  .ka-card { border-radius: 20px; }
+  .ka-hero{
+    background: linear-gradient(135deg, rgba(0,0,0,.92), rgba(0,0,0,.65));
+    color: #fff;
+  }
+  .ka-badge{
+    background: rgba(255,255,255,.14);
+    border: 1px solid rgba(255,255,255,.18);
+    padding: .6rem .9rem;
+    border-radius: 999px;
+    font-weight: 600;
+    backdrop-filter: blur(8px);
+  }
+</style>
+{% endblock %}

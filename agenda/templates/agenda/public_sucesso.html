@@ -1,48 +1,80 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <title>Agendamento confirmado</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+{% extends "agenda/base.html" %}
+{% load static %}
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-          rel="stylesheet">
-</head>
-<body class="bg-light">
+{% block title %}Kairós.app | Agendamento confirmado{% endblock %}
 
-<header class="p-3 bg-success text-white text-center">
-    <h5 class="mb-0">{{ barbearia.nome }}</h5>
-    <small>Agendamento confirmado</small>
-</header>
+{% block content %}
 
-<main class="container py-4" style="max-width: 480px;">
+<!-- TOPO -->
+<div class="topbar mb-4 text-center">
+  <div class="ap-success-icon mb-2">✅</div>
+  <h4 class="fw-bold mb-1">Agendamento confirmado</h4>
+  <div class="hint">
+    Seu horário foi reservado com sucesso
+  </div>
+</div>
 
-    <div class="card shadow-sm">
-        <div class="card-body text-center">
-            {% if agendamento %}
-                <h5 class="mb-3">Tudo certo, {{ agendamento.cliente.nome }}! 🎉</h5>
-                <p class="mb-1"><strong>Serviço:</strong> {{ agendamento.servico.nome }}</p>
-                <p class="mb-1"><strong>Dia:</strong> {{ agendamento.inicio|date:"d/m" }}</p>
-                <p class="mb-3"><strong>Horário:</strong> {{ agendamento.inicio|date:"H:i" }}</p>
-                <p class="text-muted mb-0">
-                    Se precisar remarcar ou cancelar,<br>
-                    fale diretamente com o Marquinhos pelo WhatsApp.
-                </p>
-            {% else %}
-                <h5 class="mb-3">Agendamento registrado!</h5>
-                <p class="text-muted mb-0">
-                    Seu horário foi registrado. Obrigado!
-                </p>
-            {% endif %}
+<!-- CARD CONFIRMAÇÃO -->
+<section class="mb-4">
+  <div class="card ap-card ap-animate-in">
+    <div class="card-body text-center">
+
+      {% if agendamento %}
+        <h5 class="fw-bold mb-3">
+          Tudo certo, {{ agendamento.cliente.nome }} 🎉
+        </h5>
+
+        <div class="ap-info-box mb-3">
+          <div><strong>Serviço:</strong> {{ agendamento.servico.nome }}</div>
+          <div><strong>Dia:</strong> {{ agendamento.inicio|date:"d/m/Y" }}</div>
+          <div><strong>Horário:</strong> {{ agendamento.inicio|date:"H:i" }}</div>
         </div>
-    </div>
 
-    <div class="mt-3 text-center">
-        <a href="{% url 'public_escolher_servico' barbearia.slug %}" class="btn btn-outline-success w-100">
-            Fazer outro agendamento
-        </a>
-    </div>
-</main>
+        <p class="text-muted mb-0">
+          Caso precise remarcar ou cancelar,<br>
+          entre em contato diretamente com o estabelecimento.
+        </p>
+      {% else %}
+        <h5 class="fw-bold mb-2">Agendamento registrado!</h5>
+        <p class="text-muted mb-0">
+          Seu horário foi registrado com sucesso.
+        </p>
+      {% endif %}
 
-</body>
-</html>
+    </div>
+  </div>
+</section>
+
+
+  {% if agendamento %}
+  <div class="d-grid gap-2 mt-3">
+    {% if wa_cliente %}
+      <a class="btn btn-success btn-lg ka-btn" target="_blank"
+         href="https://wa.me/{{ wa_cliente }}?text={{ wa_msg_cliente|urlencode }}">
+        📲 Receber confirmação no WhatsApp
+      </a>
+      <div class="small text-muted text-center">
+        (abre o WhatsApp com a mensagem prontinha — é só enviar)
+      </div>
+    {% endif %}
+
+    {% if wa_dono %}
+      <a class="btn btn-outline-success btn-lg ka-btn" target="_blank"
+         href="https://wa.me/{{ wa_dono }}?text={{ wa_msg_dono|urlencode }}">
+        👑 Avisar o dono (WhatsApp)
+      </a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+<!-- AÇÃO FINAL -->
+<section>
+  <div class="d-grid gap-2">
+    <a href="{% url 'public_escolher_servico' barbearia.slug %}"
+       class="btn btn-outline-primary btn-lg">
+      Fazer outro agendamento
+    </a>
+  </div>
+</section>
+
+{% endblock %}

@@ -1,0 +1,353 @@
+{% extends "agenda/base.html" %}
+{% load static %}
+
+{% block title %}Criar conta | Kairós.app{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 980px;">
+  <div class="row justify-content-center">
+    <div class="col-lg-9">
+
+      <div class="mb-4 text-center">
+        <h2 class="fw-bold mb-1">Criar conta</h2>
+        <div class="text-muted">Seu painel em 2 min. Sem drama. Só progresso 😄</div>
+      </div>
+
+      <div class="card border-0 shadow-sm rounded-4 ap-animate-in">
+        <div class="card-body p-4 p-lg-5">
+
+          <!-- PROGRESS -->
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div class="small text-muted" id="stepLabel">Passo 1 de 4</div>
+            <div class="small fw-semibold" id="stepTitle">Escolha seu usuário</div>
+          </div>
+
+          <div class="progress mb-4" style="height: 10px; border-radius: 999px;">
+            <div class="progress-bar" id="stepProgress" role="progressbar" style="width: 25%; border-radius: 999px;"></div>
+          </div>
+
+          <form method="post" autocomplete="off" id="signupWizard">
+            {% csrf_token %}
+
+            {% if messages %}
+              {% for m in messages %}
+                <div class="alert alert-{{ m.tags }} rounded-4 mb-3">{{ m }}</div>
+              {% endfor %}
+            {% endif %}
+
+            {% if form.non_field_errors %}
+              <div class="alert alert-danger rounded-4 mb-3">
+                {% for e in form.non_field_errors %}
+                  <div>{{ e }}</div>
+                {% endfor %}
+              </div>
+            {% endif %}
+
+            <!-- =========================
+                 STEP 1 — USERNAME
+                 ========================= -->
+            <div class="ka-step" data-step="1">
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Usuário (username)</label>
+
+                {% if form.username %}
+                  {{ form.username }}
+                {% else %}
+                  <input type="text" name="username" class="form-control ap-input" placeholder="Ex: marquinhos.barber" required>
+                {% endif %}
+
+                <div class="form-text">
+                  Esse é o login. Pode ser seu nome, sua marca ou algo fácil de lembrar.
+                </div>
+
+                {% if form.username.errors %}
+                  <div class="text-danger small mt-1">
+                    {% for e in form.username.errors %}{{ e }}{% endfor %}
+                  </div>
+                {% endif %}
+              </div>
+
+              <div class="d-flex gap-2 justify-content-end mt-4">
+                <button type="button" class="btn btn-dark rounded-pill px-4" id="next1">
+                  Próximo →
+                </button>
+              </div>
+            </div>
+
+            <!-- =========================
+                 STEP 2 — ESTABELECIMENTO
+                 ========================= -->
+            <div class="ka-step d-none" data-step="2">
+              <div class="row g-3">
+                <div class="col-md-7">
+                  <label class="form-label fw-semibold">Nome do estabelecimento</label>
+
+                  {% if form.nome_estabelecimento %}
+                    {{ form.nome_estabelecimento }}
+                  {% else %}
+                    <input type="text" name="nome_estabelecimento" class="form-control ap-input" placeholder="Ex: Barbearia do Marquinhos" required>
+                  {% endif %}
+
+                  {% if form.nome_estabelecimento.errors %}
+                    <div class="text-danger small mt-1">
+                      {% for e in form.nome_estabelecimento.errors %}{{ e }}{% endfor %}
+                    </div>
+                  {% endif %}
+                </div>
+
+                <div class="col-md-5">
+                  <label class="form-label fw-semibold">Tipo</label>
+
+                  {% if form.tipo %}
+                    {{ form.tipo }}
+                  {% else %}
+                    <select name="tipo" class="form-select ap-input" required>
+                      <option value="barbearia">Barbearia</option>
+                      <option value="manicure">Manicure</option>
+                      <option value="salao">Salão</option>
+                      <option value="outro">Outro</option>
+                    </select>
+                  {% endif %}
+
+                  {% if form.tipo.errors %}
+                    <div class="text-danger small mt-1">
+                      {% for e in form.tipo.errors %}{{ e }}{% endfor %}
+                    </div>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="d-flex gap-2 justify-content-between mt-4">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4" id="back2">← Voltar</button>
+                <button type="button" class="btn btn-dark rounded-pill px-4" id="next2">Próximo →</button>
+              </div>
+            </div>
+
+            <!-- =========================
+                 STEP 3 — CONTATO & LINK
+                 ========================= -->
+            <div class="ka-step d-none" data-step="3">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold">Telefone (WhatsApp)</label>
+
+                  {% if form.telefone %}
+                    {{ form.telefone }}
+                  {% else %}
+                    <input type="text" name="telefone" class="form-control ap-input" placeholder="(19) 99999-9999" required>
+                  {% endif %}
+
+                  <div class="form-text">Esse número pode receber aviso de agendamento.</div>
+
+                  {% if form.telefone.errors %}
+                    <div class="text-danger small mt-1">
+                      {% for e in form.telefone.errors %}{{ e }}{% endfor %}
+                    </div>
+                  {% endif %}
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold">E-mail</label>
+
+                  {% if form.email %}
+                    {{ form.email }}
+                  {% else %}
+                    <input type="email" name="email" class="form-control ap-input" placeholder="voce@exemplo.com" required>
+                  {% endif %}
+
+                  {% if form.email.errors %}
+                    <div class="text-danger small mt-1">
+                      {% for e in form.email.errors %}{{ e }}{% endfor %}
+                    </div>
+                  {% endif %}
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label fw-semibold">Slug (vai virar seu link público)</label>
+                  <div class="input-group">
+                    <span class="input-group-text">/agendar/</span>
+
+                    {% if form.slug %}
+                      {{ form.slug }}
+                    {% else %}
+                      <input type="text" name="slug" class="form-control ap-input" placeholder="seu-slug" required>
+                    {% endif %}
+
+                    <span class="input-group-text">/</span>
+                  </div>
+
+                  <div class="form-text">
+                    Dica: use algo curto. Ex: <b>marquinhos</b> ou <b>studio-ana</b>
+                  </div>
+
+                  {% if form.slug.errors %}
+                    <div class="text-danger small mt-1">
+                      {% for e in form.slug.errors %}{{ e }}{% endfor %}
+                    </div>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="d-flex gap-2 justify-content-between mt-4">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4" id="back3">← Voltar</button>
+                <button type="button" class="btn btn-dark rounded-pill px-4" id="next3">Próximo →</button>
+              </div>
+            </div>
+
+            <!-- =========================
+                 STEP 4 — SENHA
+                 ========================= -->
+            <div class="ka-step d-none" data-step="4">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold">Senha</label>
+
+                  {% if form.password1 %}
+                    {{ form.password1 }}
+                  {% else %}
+                    <input type="password" name="password1" class="form-control ap-input" required autocomplete="new-password">
+                  {% endif %}
+
+                  {% if form.password1.errors %}
+                    <div class="text-danger small mt-1">
+                      {% for e in form.password1.errors %}{{ e }}{% endfor %}
+                    </div>
+                  {% endif %}
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold">Confirmar senha</label>
+
+                  {% if form.password2 %}
+                    {{ form.password2 }}
+                  {% else %}
+                    <input type="password" name="password2" class="form-control ap-input" required autocomplete="new-password">
+                  {% endif %}
+
+                  {% if form.password2.errors %}
+                    <div class="text-danger small mt-1">
+                      {% for e in form.password2.errors %}{{ e }}{% endfor %}
+                    </div>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="d-flex gap-2 justify-content-between mt-4">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4" id="back4">← Voltar</button>
+
+                <button type="submit" class="btn ka-btn-primary rounded-pill px-4 ap-btn-glow" id="submitBtn">
+                  Criar conta ✅
+                </button>
+              </div>
+
+              <div class="mt-3 text-muted small">
+                Ao criar sua conta, você será redirecionado para o onboarding guiado.
+              </div>
+            </div>
+
+          </form>
+
+        </div>
+      </div>
+
+      <div class="text-center mt-4">
+        <div class="text-muted small">
+          Já tem conta? <a href="{% url 'login' %}" class="fw-semibold">Entrar</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const steps = Array.from(document.querySelectorAll(".ka-step"));
+  const stepLabel = document.getElementById("stepLabel");
+  const stepTitle = document.getElementById("stepTitle");
+  const stepProgress = document.getElementById("stepProgress");
+  const form = document.getElementById("signupWizard");
+  const submitBtn = document.getElementById("submitBtn");
+
+  const titles = {
+    1: "Escolha seu usuário",
+    2: "Dados do estabelecimento",
+    3: "Contato & link público",
+    4: "Crie sua senha"
+  };
+
+  function showStep(n){
+    steps.forEach(s => s.classList.add("d-none"));
+    const el = document.querySelector(`.ka-step[data-step="${n}"]`);
+    if(el) el.classList.remove("d-none");
+
+    if(stepLabel) stepLabel.textContent = `Passo ${n} de 4`;
+    if(stepTitle) stepTitle.textContent = titles[n] || "";
+    if(stepProgress) stepProgress.style.width = (n * 25) + "%";
+
+    const firstInput = el ? el.querySelector("input, select, textarea") : null;
+    if(firstInput) setTimeout(() => firstInput.focus(), 60);
+  }
+
+  function requiredFilled(stepEl){
+    const required = Array.from(stepEl.querySelectorAll("[required]"));
+    for(const f of required){
+      if((f.value || "").trim() === "") return false;
+    }
+    return true;
+  }
+
+  // botões
+  const btnNext1 = document.getElementById("next1");
+  const btnNext2 = document.getElementById("next2");
+  const btnNext3 = document.getElementById("next3");
+
+  const btnBack2 = document.getElementById("back2");
+  const btnBack3 = document.getElementById("back3");
+  const btnBack4 = document.getElementById("back4");
+
+  btnNext1 && btnNext1.addEventListener("click", () => {
+    const stepEl = document.querySelector('.ka-step[data-step="1"]');
+    if(!requiredFilled(stepEl)) return alert("Preencha o usuário (username) 🙂");
+    showStep(2);
+  });
+
+  btnNext2 && btnNext2.addEventListener("click", () => {
+    const stepEl = document.querySelector('.ka-step[data-step="2"]');
+    if(!requiredFilled(stepEl)) return alert("Preencha o nome e o tipo do estabelecimento 🙂");
+    showStep(3);
+  });
+
+  btnNext3 && btnNext3.addEventListener("click", () => {
+    const stepEl = document.querySelector('.ka-step[data-step="3"]');
+    if(!requiredFilled(stepEl)) return alert("Preencha telefone, e-mail e slug 🙂");
+    showStep(4);
+  });
+
+  btnBack2 && btnBack2.addEventListener("click", () => showStep(1));
+  btnBack3 && btnBack3.addEventListener("click", () => showStep(2));
+  btnBack4 && btnBack4.addEventListener("click", () => showStep(3));
+
+  // evita clique duplo no submit
+  form && form.addEventListener("submit", () => {
+    if(submitBtn){
+      submitBtn.disabled = true;
+      submitBtn.innerText = "Criando... 🚀";
+    }
+  });
+
+  // abre automaticamente o step correto quando vier POST com erros
+  const hasErrors = {% if form.errors %}true{% else %}false{% endif %};
+
+  if(hasErrors){
+    const errText = "{{ form.errors.as_text|escapejs }}";
+    if(errText.includes("password") || errText.includes("senha")) showStep(4);
+    else if(errText.includes("slug") || errText.includes("telefone") || errText.includes("email")) showStep(3);
+    else if(errText.includes("nome_estabelecimento") || errText.includes("tipo")) showStep(2);
+    else showStep(1);
+  } else {
+    showStep(1);
+  }
+})();
+</script>
+{% endblock %}

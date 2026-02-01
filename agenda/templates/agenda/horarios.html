@@ -1,184 +1,83 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Horários - {{ barbearia.nome }}</title>
+{% extends 'agenda/base.html' %}
 
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+{% block title %}Horários | Kairós.app{% endblock %}
 
-  <style>
-    :root{
-      --green: #18c90f;       /* verde vivo */
-      --green-soft: rgba(24,201,15,.12);
-      --text: #1f2937;
-      --muted: #6b7280;
-      --bg: #f5f6f8;
-      --card: #ffffff;
-      --stroke: rgba(31,41,55,.10);
-    }
-
-    body{
-      background: var(--bg);
-      color: var(--text);
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-
-    .topbar{
-      background: linear-gradient(180deg, #ffffff, #f7f8fa);
-      border: 1px solid var(--stroke);
-      border-radius: 16px;
-      padding: 14px 14px;
-      box-shadow: 0 10px 26px rgba(0,0,0,.06);
-    }
-
-    .hint{
-      color: var(--muted);
-      font-size: .85rem;
-    }
-
-    .btn-green{
-      background: var(--green);
-      border-color: var(--green);
-      color: #fff;
-      border-radius: 999px;
-      font-weight: 600;
-      padding: .45rem .9rem;
-      box-shadow: 0 10px 22px rgba(24,201,15,.20);
-    }
-    .btn-green:hover{
-      background: #14b10c;
-      border-color: #14b10c;
-      color: #fff;
-    }
-
-    .card{
-      background: var(--card);
-      border: 1px solid var(--stroke);
-      border-radius: 16px !important;
-      box-shadow: 0 10px 26px rgba(0,0,0,.06);
-    }
-
-    .badge-soft{
-      background: var(--green-soft);
-      color: #0b6b08;
-      border: 1px solid rgba(24,201,15,.25);
-      border-radius: 999px;
-      padding: .18rem .55rem;
-      font-size: .75rem;
-      font-weight: 600;
-    }
-
-    .block-row{
-      border: 1px solid rgba(24,201,15,.22);
-      background: #fff;
-      border-radius: 14px;
-      padding: .65rem .75rem;
-    }
-
-    .time-pill{
-      display: inline-flex;
-      align-items: center;
-      gap: .35rem;
-      padding: .25rem .6rem;
-      border-radius: 999px;
-      border: 1px solid rgba(24,201,15,.28);
-      background: var(--green-soft);
-      font-weight: 700;
-      letter-spacing: .02em;
-    }
-
-    .status{
-      display: inline-flex;
-      align-items: center;
-      gap: .4rem;
-      color: var(--muted);
-      font-size: .85rem;
-    }
-    .dot{
-      width: 10px; height: 10px; border-radius: 999px;
-      background: var(--green);
-      box-shadow: 0 0 0 4px var(--green-soft);
-    }
-    .dot.off{
-      background: #9ca3af;
-      box-shadow: 0 0 0 4px rgba(156,163,175,.18);
-    }
-
-    .btn-outline-secondary, .btn-outline-danger{
-      border-radius: 999px;
-      padding: .35rem .8rem;
-    }
-
-    .btn-back{
-      border-radius: 999px;
-      padding: .6rem 1rem;
-      font-weight: 600;
-    }
-  </style>
-</head>
-
-<body>
-<main class="container py-3" style="max-width: 520px;">
-
-  <div class="topbar mb-3 d-flex justify-content-between align-items-center">
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex align-items-start justify-content-between flex-wrap gap-3 mb-4">
     <div>
-      <h5 class="mb-1">Horários de atendimento</h5>
-      <div class="hint">Cadastre blocos por dia (ex.: 07–10 e 15–18)</div>
+      <h2 class="mb-1">Horários de atendimento</h2>
+      <p class="text-muted mb-0">
+        Configure em blocos por dia (ex.: 07:00–12:00 e 14:00–18:00). Só <strong>blocos ativos</strong> aparecem para os clientes.
+      </p>
     </div>
-    <a class="btn btn-green btn-sm" href="{% url 'homemcom_horarios_novo' %}">+ Novo bloco</a>
+
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-secondary" href="{% url 'homemcom_configuracoes' %}">
+        Voltar
+      </a>
+      <a class="ka-btn ka-btn-primary" href="{% url 'homemcom_horarios_novo' %}">
+        + Adicionar bloco
+      </a>
+    </div>
   </div>
 
-  {% for dia in dias %}
-    <div class="card mb-2">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <strong>{{ dia.nome }}</strong>
-          <span class="badge-soft">{{ dia.qtd }} bloco(s)</span>
-        </div>
-
-        {% if dia.blocos %}
-          <div class="d-flex flex-column gap-2">
-            {% for bloco in dia.blocos %}
-              <div class="block-row d-flex justify-content-between align-items-center">
-                <div>
-                  <div class="time-pill">
-                    <span>{{ bloco.inicio|time:"H:i" }}</span>
-                    <span style="opacity:.55;">—</span>
-                    <span>{{ bloco.fim|time:"H:i" }}</span>
-                  </div>
-
-                  <div class="status mt-1">
-                    {% if bloco.ativo %}
-                      <span class="dot"></span> Ativo
-                    {% else %}
-                      <span class="dot off"></span> Inativo
-                    {% endif %}
-                  </div>
-                </div>
-
-                <div class="d-flex gap-2">
-                  <a class="btn btn-outline-secondary btn-sm"
-                     href="{% url 'homemcom_horarios_editar' bloco.id %}">Editar</a>
-                  <a class="btn btn-outline-danger btn-sm"
-                     href="{% url 'homemcom_horarios_excluir' bloco.id %}">Excluir</a>
+  {% if not dias %}
+    <div class="glass-card p-4 text-center">
+      <h5 class="mb-2">Nenhum horário cadastrado ainda</h5>
+      <p class="text-muted mb-3">Clique em <strong>Adicionar bloco</strong> para criar seus primeiros horários.</p>
+      <a class="btn btn-primary" href="{% url 'homemcom_novo_bloco_horario' %}">Criar primeiro bloco</a>
+    </div>
+  {% else %}
+    <div class="row g-4">
+      {% for d in dias %}
+        <div class="col-12 col-lg-6">
+          <div class="glass-card p-3 h-100">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <div>
+                <h5 class="mb-0">{{ d.nome }}</h5>
+                <div class="text-muted small">
+                  {{ d.blocos|length }} bloco{{ d.blocos|length|pluralize }}
                 </div>
               </div>
-            {% endfor %}
+              <a class="btn btn-sm btn-outline-primary" href="{% url 'homemcom_horarios_novo' %}?dia={{ d.dia }}">
+                +
+              </a>
+            </div>
+
+            {% if d.blocos %}
+              <div class="list-group list-group-flush">
+                {% for b in d.blocos %}
+                  <div class="list-group-item bg-transparent d-flex align-items-center justify-content-between gap-3">
+                    <div class="d-flex align-items-center gap-3">
+                      <span class="badge rounded-pill {% if b.ativo %}bg-success{% else %}bg-secondary{% endif %}">
+                        {% if b.ativo %}Ativo{% else %}Inativo{% endif %}
+                      </span>
+                      <div>
+                        <div class="fw-semibold">{{ b.inicio|time:"H:i" }} – {{ b.fim|time:"H:i" }}</div>
+                        <div class="text-muted small">ID #{{ b.id }}</div>
+                      </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                      <a class="btn btn-sm btn-outline-secondary" href="{% url 'homemcom_horarios_editar' b.id %}">Editar</a>
+                      <a class="btn btn-sm btn-outline-danger" href="{% url 'homemcom_horarios_excluir' b.id %}">Excluir</a>
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="text-muted small">Sem blocos nesse dia.</div>
+            {% endif %}
+
           </div>
-        {% else %}
-          <p class="text-muted mb-0">Nenhum bloco cadastrado.</p>
-        {% endif %}
-      </div>
+        </div>
+      {% endfor %}
     </div>
-  {% endfor %}
+  {% endif %}
 
-  <div class="mt-3">
-    <a class="btn btn-outline-secondary w-100 btn-back" href="{% url 'homemcom_dashboard' %}">
-      ← Voltar pro dashboard
-    </a>
+  <div class="mt-4 text-muted small">
+    Dica: se você não trabalha em um horário específico (ex.: almoço), crie <strong>dois blocos</strong> no mesmo dia.
   </div>
-
-</main>
-</body>
-</html>
+</div>
+{% endblock %}

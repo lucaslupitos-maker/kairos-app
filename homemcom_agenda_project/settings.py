@@ -5,11 +5,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = 'troque-esta-chave-em-producao'
 
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = [
-    "homemcom-agenda.onrender.com",
-    ".onrender.com",
+    "127.0.0.1",
+    "localhost",
 ]
 
 
@@ -32,6 +32,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
 ROOT_URLCONF = 'homemcom_agenda_project.urls'
@@ -47,6 +49,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+
+'agenda.context_processors.current_account',
             ],
         },
     },
@@ -95,3 +99,20 @@ STATICFILES_DIRS = [
 ]
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Auth
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'homemcom_dashboard'
+LOGOUT_REDIRECT_URL = 'login'
+
+import os
+from pathlib import Path
+
+DEBUG = os.getenv("DEBUG", "0") == "1"
+
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",") if os.getenv("ALLOWED_HOSTS") else ["*"]
+
+CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if os.getenv("CSRF_TRUSTED_ORIGINS") else []
+
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"

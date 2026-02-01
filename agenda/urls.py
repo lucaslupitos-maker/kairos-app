@@ -29,4 +29,10 @@ urlpatterns = [
     path("agendar/<slug:slug>/confirmar/", views.public_confirmar_dados, name="public_confirmar_dados"),
     path("agendar/<slug:slug>/sucesso/", views.public_sucesso, name="public_sucesso"),
     path('relatorios/', views.relatorios_view, name='homemcom_relatorios'),
+    path("criar-conta/", views.signup, name="signup"),
+    path("onboarding/<slug:slug>/servicos/", views.onboarding_servicos, name="onboarding_servicos"),
+    path("onboarding/<slug:slug>/horarios/", views.onboarding_horarios, name="onboarding_horarios"),
+    path("onboarding/<slug:slug>/finalizado/", views.onboarding_finalizado, name="onboarding_finalizado"),
+    path("configuracoes/servico/<int:pk>/excluir/", views.excluir_servico, name="homemcom_excluir_servico"),
+    path("configuracoes/produto/<int:pk>/excluir/", views.excluir_produto, name="homemcom_excluir_produto"),
 ]

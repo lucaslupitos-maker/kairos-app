@@ -1,0 +1,18 @@
+/* =========================
+   NAVBAR (sem translucidez)
+   ========================= */
+.kairos-navbar{
+  background: #ffffff !important;    /* sem transparência */
+  border-bottom: 1px solid rgba(0,0,0,.08);
+  box-shadow: 0 10px 30px rgba(0,0,0,.06);
+}
+
+/* Compensa o fixed-top para não cobrir o conteúdo */
+body{
+  padding-top: 76px; /* ajuste fino: 72~86 dependendo da altura da navbar */
+}
+
+/* Se no mobile aumentar a altura */
+@media (max-width: 991px){
+  body{ padding-top: 86px; }
+}

@@ -2,28 +2,29 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.core.exceptions import ValidationError
+from datetime import timedelta
 
 User = get_user_model()
 
 
 class BarberShop(models.Model):
-    """
-    Barbearia Homem.com (e futuramente outras).
-    """
+    TIPO_CHOICES = [
+        ('barbearia', 'Barbearia'),
+        ('salao', 'Salão / Cabeleireiro'),
+        ('manicure', 'Manicure'),
+        ('sobrancelha', 'Sobrancelha'),
+        ('maquiagem', 'Maquiagem'),
+        ('outro', 'Outro'),
+    ]
     nome = models.CharField(max_length=100)
-    dono = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='barbearias'
-    )
+    dono = models.ForeignKey(User, on_delete=models.CASCADE, related_name='estabelecimentos')
     telefone = models.CharField(max_length=20, blank=True, null=True)
     endereco = models.CharField(max_length=255, blank=True, null=True)
-    slug = models.SlugField(unique=True)  # ex: "homemcom"
+    slug = models.SlugField(unique=True)
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default='outro')
 
     def __str__(self):
         return self.nome
-
-
 class Service(models.Model):
     """
     Serviços oferecidos: corte, barba, sobrancelha, luzes etc.
@@ -59,28 +60,40 @@ class Product(models.Model):
         return self.nome
 
 class ProductSale(models.Model):
-    barbearia = models.ForeignKey(
-        BarberShop,
-        on_delete=models.CASCADE,
-        related_name='vendas_produtos'
-    )
+    barbearia = models.ForeignKey('BarberShop', on_delete=models.CASCADE, related_name='vendas_produtos')
+
     produto = models.ForeignKey(
-        Product,
-        on_delete=models.CASCADE,
+        'Product',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
         related_name='vendas'
     )
+
+    # quando não existir no cadastro:
+    produto_nome = models.CharField(max_length=120, blank=True, default="")
+
     quantidade = models.PositiveIntegerField(default=1)
-    valor_unitario = models.DecimalField(max_digits=8, decimal_places=2)
-    valor_total = models.DecimalField(max_digits=10, decimal_places=2)
+
+    valor_unitario = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    valor_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+
     data_hora = models.DateTimeField(default=timezone.now)
     observacao = models.CharField(max_length=255, blank=True)
 
-    class Meta:
-        verbose_name = "Venda de produto"
-        verbose_name_plural = "Vendas de produtos"
+    def save(self, *args, **kwargs):
+        # se tem produto e não veio valor_unitario, puxa do produto
+        if self.produto_id and (self.valor_unitario is None or self.valor_unitario == ''):
+            self.valor_unitario = self.produto.preco
 
-    def __str__(self):
-        return f"{self.quantidade}x {self.produto.nome} ({self.data_hora:%d/%m})"
+        # calcula total sempre
+        if self.valor_unitario is not None:
+            self.valor_total = (self.quantidade or 1) * self.valor_unitario
+
+        super().save(*args, **kwargs)
+
+    def _str_(self):
+        nome = self.produto.nome if self.produto_id else (self.produto_nome or "Produto")
+        return f"{self.quantidade}x {nome} ({self.data_hora:%d/%m})"
 
 
 class Client(models.Model):
@@ -155,9 +168,6 @@ class WorkDayConfig(models.Model):
         return f'{self.barbearia.nome} - {self.get_dia_semana_display()} {self.inicio}-{self.fim}'
 
 class Appointment(models.Model):
-    """
-    Agendamentos de horários.
-    """
     STATUS_CHOICES = [
         ('aguardando', 'Aguardando confirmação'),
         ('confirmado', 'Confirmado'),
@@ -170,45 +180,44 @@ class Appointment(models.Model):
         ('manual', 'Manual'),
     ]
 
-    barbearia = models.ForeignKey(
-        BarberShop,
-        on_delete=models.CASCADE,
-        related_name='agendamentos'
-    )
+    barbearia = models.ForeignKey('BarberShop', on_delete=models.CASCADE, related_name='agendamentos')
+
     cliente = models.ForeignKey(
-        Client,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='agendamentos'
+        'Client', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='agendamentos'
     )
-    servico = models.ForeignKey(
-        Service,
-        on_delete=models.PROTECT,
-        related_name='agendamentos'
-    )
+
+    servico = models.ForeignKey('Service', on_delete=models.PROTECT, related_name='agendamentos')
+
     inicio = models.DateTimeField()
     fim = models.DateTimeField()
-    status = models.CharField(
-        max_length=20,
-        choices=STATUS_CHOICES,
-        default='confirmado'
-    )
-    criado_via = models.CharField(
-        max_length=20,
-        choices=ORIGEM_CHOICES,
-        default='manual'
-    )
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='confirmado')
+    criado_via = models.CharField(max_length=20, choices=ORIGEM_CHOICES, default='manual')
+
     valor_no_momento = models.DecimalField(
         max_digits=8,
         decimal_places=2,
+        null=True, blank=True,  # <- deixa passar vazio no form
         help_text='Preço congelado na data em que o agendamento foi criado.'
     )
+
     criado_em = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f'{self.servico.nome} - {self.inicio} ({self.get_status_display()})'
+    def save(self, *args, **kwargs):
+        # calcula fim automaticamente
+        if self.inicio and self.servico_id:
+            dur = self.servico.duracao_minutos or 30
+            self.fim = self.inicio + timedelta(minutes=dur)
 
+        # garante valor_no_momento
+        if self.servico_id and (self.valor_no_momento is None or self.valor_no_momento == ''):
+            self.valor_no_momento = self.servico.preco
+
+        super().save(*args, **kwargs)
+
+    def _str_(self):
+        return f'{self.servico.nome} - {self.inicio} ({self.get_status_display()})'
 
 class Cancellation(models.Model):
     """

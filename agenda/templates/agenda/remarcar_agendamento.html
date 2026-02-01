@@ -1,47 +1,35 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <title>Remarcar agendamento - Homem.com Agenda</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+{% extends 'agenda/base.html' %}
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-          rel="stylesheet">
-</head>
-<body class="bg-light">
+{% block title %}Remarcar agendamento{% endblock %}
 
-<header class="p-3 bg-dark text-white d-flex justify-content-between">
-    <div>
-        <strong>Homem.com Agenda</strong><br>
-        <small>{{ barbearia.nome }}</small>
-    </div>
-    <a href="{% url 'homemcom_dashboard' %}" class="btn btn-sm btn-light">← Voltar</a>
-</header>
-
-<main class="container py-4" style="max-width: 480px;">
-    <div class="card shadow-sm">
-        <div class="card-header">
-            <h6 class="mb-0">Remarcar agendamento</h6>
+{% block content %}
+<div class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-lg-7">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+          <h2 class="h4 mb-1">Remarcar agendamento</h2>
+          <div class="text-muted small">
+            {{ agendamento.servico.nome }} • {{ agendamento.inicio|date:"d/m/Y H:i" }}
+          </div>
         </div>
-        <div class="card-body">
-            <p><strong>Cliente:</strong> {{ agendamento.cliente }}</p>
-            <p><strong>Serviço:</strong> {{ agendamento.servico.nome }}</p>
-            <p><strong>Horário atual:</strong> {{ agendamento.inicio|date:"d/m H:i" }}</p>
+        <a href="{% url 'homemcom_dashboard' %}" class="btn btn-sm btn-outline-secondary rounded-pill">Voltar</a>
+      </div>
 
-            <hr>
+      <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-4 p-md-5">
+          <form method="post" class="vstack gap-3">
+            {% csrf_token %}
+            {{ form.as_p }}
 
-            <form method="post">
-                {% csrf_token %}
-                <div class="mb-3">
-                    <label class="form-label">Nova data e horário</label>
-                    {{ form.inicio }}
-                </div>
-                <button type="submit" class="btn btn-primary w-100">
-                    Salvar nova data
-                </button>
-            </form>
+            <div class="d-flex gap-2 pt-2">
+              <button type="submit" class="btn btn-dark rounded-pill px-4">Salvar</button>
+              <a href="{% url 'homemcom_dashboard' %}" class="btn btn-outline-secondary rounded-pill px-4">Cancelar</a>
+            </div>
+          </form>
         </div>
+      </div>
     </div>
-</main>
-</body>
-</html>
+  </div>
+</div>
+{% endblock %}
