@@ -1,11 +1,12 @@
 from pathlib import Path
 import os
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = 'troque-esta-chave-em-producao'
 
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = [
     "127.0.0.1",
@@ -16,7 +17,7 @@ ALLOWED_HOSTS = [
 
 CSRF_TRUSTED_ORIGINS = [
     "https://*.railway.app",
-    "web-production-6e6e2.up.railway.app",
+    "https://web-production-6e6e2.up.railway.app",
 ]
 
 INSTALLED_APPS = [
@@ -39,6 +40,8 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
 'whitenoise.middleware.WhiteNoiseMiddleware',
+
+'agenda.middleware.PaymentGateMiddleware',
 ]
 
 ROOT_URLCONF = 'homemcom_agenda_project.urls'
@@ -66,12 +69,11 @@ WSGI_APPLICATION = 'homemcom_agenda_project.wsgi.application'
 
 # Banco de dados simples (sqlite)
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default='sqlite:///db.sqlite3',
+        conn_max_age=600
+    )
 }
-
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -114,3 +116,11 @@ LOGOUT_REDIRECT_URL = 'login'
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# PIX (Bloco 1)
+PIX_CHAVE = "42506340866"  # seu CPF (sem pontuação)
+PIX_BANCO = "Nubank"
+PIX_BENEFICIARIO = "Lucas Castiglioni Toledo de Souza"
+PIX_VALOR_SUGERIDO = None  # ou 39.90, se quiser sugerir
+PIX_QR_IMAGE = "agenda/img/pix_nubank_qr.png"  # caminho dentro de /static/
+WHATSAPP_SUPORTE = "5519981514883"  # seu número com DDI+DDD (sem +, sem espaços)

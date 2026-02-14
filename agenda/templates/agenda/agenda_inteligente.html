@@ -1,0 +1,152 @@
+
+{% extends "agenda/base.html" %}
+{% load static %}
+{% block title %}Kairós.app | Agenda Inteligente{% endblock %}
+{% block content %}
+<div class="topbar mb-4 d-flex justify-content-between align-items-center">
+  <div>
+    <h4 class="mb-1 fw-bold">Agenda inteligente</h4>
+    <div class="hint">Clientes fixos + pausas automáticas • sem mexer nos horários na unha 😄</div>
+  </div>
+  <span class="badge-soft">🧠</span>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-lg-5">
+    <div class="card ap-card ap-animate-in">
+      <div class="card-body">
+        <h6 class="fw-bold mb-3">Criar bloqueio recorrente</h6>
+        <form method="post">
+          {% csrf_token %}
+
+          <div class="mb-3">
+            <label class="form-label small text-muted">Tipo</label>
+            {{ form.kind }}
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small text-muted">Título</label>
+            {{ form.titulo }}
+            <div class="form-text">Ex.: <b>João (pacote)</b> ou <b>Almoço</b></div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small text-muted">Dias da semana</label>
+            <div class="d-flex flex-wrap gap-2">
+              {% for cb in form.dias %}
+                <div>
+                  {{ cb.tag }}
+                  <label class="btn btn-outline-secondary rounded-pill px-3 py-1" for="{{ cb.id_for_label }}">
+                    {{ cb.choice_label }}
+                  </label>
+                </div>
+              {% endfor %}
+            </div>
+            <div class="form-text">Dica: dá pra marcar vários dias. O sistema vai criar um bloqueio por dia 😉</div>
+          </div>
+
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label class="form-label small text-muted">Início</label>
+              {{ form.inicio }}
+            </div>
+            <div class="col-6">
+              <label class="form-label small text-muted">Fim</label>
+              {{ form.fim }}
+            </div>
+          </div>
+
+
+
+          <div class="form-check mb-3">
+            {{ form.ativo }}
+            <label class="form-check-label">Ativo</label>
+          </div>
+
+          {% if form.errors %}
+            <div class="alert alert-danger rounded-4">
+              <div class="fw-semibold">Ops…</div>
+              {{ form.errors }}
+            </div>
+          {% endif %}
+
+          <button class="btn btn-dark rounded-pill px-4" type="submit">Salvar bloqueio</button>
+          <a class="btn btn-outline-secondary rounded-pill px-4" href="{% url 'homemcom_semana' %}">Ver semana</a>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-7">
+    <div class="card ap-card ap-animate-in">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h6 class="fw-bold mb-0">Bloqueios cadastrados</h6>
+          <span class="badge-soft">🔒</span>
+        </div>
+
+        {% if blocks %}
+          <div class="table-responsive">
+            <table class="table align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Tipo</th>
+                  <th>Dia</th>
+                  <th>Horário</th>
+                  <th>Título</th>
+                  <th>Status</th>
+                  <th class="text-end">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for b in blocks %}
+                  <tr>
+                    <td>
+                      {% if b.kind == "fixo" %}
+                        <span class="badge text-bg-primary">Fixo</span>
+                      {% else %}
+                        <span class="badge text-bg-secondary">Pausa</span>
+                      {% endif %}
+                    </td>
+                    <td class="fw-semibold">{{ b.get_dia_semana_display }}</td>
+                    <td>{{ b.inicio|time:"H:i" }}–{{ b.fim|time:"H:i" }}</td>
+                    <td>{{ b.titulo }}</td>
+                    <td>
+                      {% if b.ativo %}
+                        <span class="badge text-bg-success">Ativo</span>
+                      {% else %}
+                        <span class="badge text-bg-light">Inativo</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-end">
+                      <div class="btn-group btn-group-sm" role="group">
+                        <a class="btn btn-outline-secondary" href="{% url 'homemcom_agenda_inteligente_toggle' b.id %}">
+                          {% if b.ativo %}Desativar{% else %}Ativar{% endif %}
+                        </a>
+                        <a class="btn btn-outline-danger" href="{% url 'homemcom_agenda_inteligente_excluir' b.id %}"
+                           onclick="return confirm('Excluir este bloqueio?');">
+                          Excluir
+                        </a>
+                      </div>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="text-muted mb-0">Nenhum bloqueio ainda. Hora de deixar a agenda “à prova de pacotes” 😄</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="alert alert-info rounded-4 mt-3 mb-0">
+      <div class="fw-semibold">Como isso funciona?</div>
+      <div class="small">
+        Tudo que você cadastrar aqui <b>some</b> dos horários disponíveis pro público.
+        E aparece na sua <b>visão semanal</b> pra você não esquecer.
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

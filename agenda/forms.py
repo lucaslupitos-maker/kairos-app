@@ -1,3 +1,4 @@
+import re
 from django import forms
 from django.utils import timezone
 from datetime import timedelta
@@ -395,7 +396,7 @@ class SignupForm(forms.Form):
             tipo=self.cleaned_data["tipo"],
             slug=self.cleaned_data["slug"],
             telefone=self.cleaned_data["telefone"],
-            dono=user,  # ✅ seu campo real
+            dono=user,
         )
 
         return user, shop
@@ -404,6 +405,16 @@ class SignupEstabelecimentoForm(forms.Form):
     nome_estabelecimento = forms.CharField(max_length=100)
     tipo = forms.ChoiceField(choices=BarberShop.TIPO_CHOICES)
     telefone = forms.CharField(max_length=20, required=False)
+
+    def clean_telefone(self):
+        tel = (self.cleaned_data.get("telefone") or "").strip()
+        if not tel:
+            return ""
+        digits = re.sub(r"\D+", "", tel)
+        if len(digits) > 11 and digits.startswith("55"):
+            digits = digits[2:]
+        return digits
+
     slug = forms.SlugField(help_text="Vai virar seu link: /agendar/SEU-SLUG/")
 
     email = forms.EmailField()
@@ -467,3 +478,89 @@ def save(self, barbearia, commit=True):
         agendamento.save()
 
     return agendamento
+
+
+class RecurringBlockForm(forms.Form):
+    """Cria bloqueios recorrentes com múltiplos dias (1 registro por dia)."""
+
+    KIND_CHOICES = (("fixo", "Cliente fixo"), ("pausa", "Pausa"))
+    DAYS = (
+        (0, "Seg"), (1, "Ter"), (2, "Qua"), (3, "Qui"), (4, "Sex"), (5, "Sáb"), (6, "Dom")
+    )
+
+    kind = forms.ChoiceField(choices=KIND_CHOICES, initial="fixo")
+    titulo = forms.CharField(max_length=80)
+    dias = forms.MultipleChoiceField(choices=DAYS, widget=forms.CheckboxSelectMultiple)
+    inicio = forms.TimeField()
+    fim = forms.TimeField()
+    servico = forms.ModelChoiceField(queryset=Service.objects.all(), required=False)
+    duracao_minutos = forms.IntegerField(required=False, min_value=1)
+    ativo = forms.BooleanField(required=False, initial=True)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # --- Visual premium (Bootstrap) ---
+        self.fields["kind"].widget.attrs.update({"class": "form-select rounded-pill"})
+        self.fields["titulo"].widget.attrs.update({
+            "class": "form-control rounded-pill",
+            "placeholder": "Ex.: João (pacote) ou Almoço",
+        })
+
+        # Dias: vamos renderizar manualmente no template (botões)
+        self.fields["dias"].widget.attrs.update({"class": "btn-check"})
+
+        # Horários
+        time_attrs = {"class": "form-control rounded-pill", "type": "time"}
+        self.fields["inicio"].widget = forms.TimeInput(attrs=time_attrs)
+        self.fields["fim"].widget = forms.TimeInput(attrs=time_attrs)
+
+        # Serviço (opcional)
+        self.fields["servico"].widget.attrs.update({"class": "form-select rounded-pill"})
+        self.fields["duracao_minutos"].widget.attrs.update({
+            "class": "form-control rounded-pill",
+            "placeholder": "Ex.: 30",
+        })
+
+    def clean(self):
+        data = super().clean()
+        ini = data.get("inicio")
+        fim = data.get("fim")
+        if ini and fim and fim <= ini:
+            raise forms.ValidationError("O horário de fim precisa ser depois do início.")
+        return data
+
+# ==========================
+# PORTAL DO CLIENTE (Login + Painel)
+# ==========================
+
+class PublicClienteLoginForm(forms.Form):
+    nome = forms.CharField(label="Seu nome", max_length=120)
+    telefone = forms.CharField(label="Seu telefone", max_length=30)
+
+    def clean_telefone(self):
+        tel = (self.cleaned_data.get("telefone") or "").strip()
+
+        # mantém só dígitos
+        digits = "".join(ch for ch in tel if ch.isdigit())
+
+        if len(digits) < 8:
+            raise forms.ValidationError("Telefone inválido.")
+
+        if len(digits) > 11 and digits[:2] == "55":
+            digits = digits[2:]
+
+        return digits
+
+
+class PublicClienteReagendarForm(forms.Form):
+    """Reagendamento simples no portal do cliente (data + hora)."""
+
+    data = forms.DateField(
+        label="Nova data",
+        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+    )
+    hora = forms.TimeField(
+        label="Novo horário",
+        widget=forms.TimeInput(attrs={"type": "time", "class": "form-control"}),
+    )

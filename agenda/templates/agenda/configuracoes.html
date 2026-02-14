@@ -12,6 +12,49 @@
   </div>
 
   <div class="row g-3">
+<!-- LINK PÚBLICO -->
+<div class="col-12">
+  <div class="card border-0 shadow-sm rounded-4 mb-3">
+    <div class="card-body p-4">
+
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <div class="fw-semibold">🔗 Seu link público de agendamento (SEU-SLUG)</div>
+          <div class="text-muted small">
+            Compartilhe no Instagram, WhatsApp ou Google para seus clientes agendarem sozinhos.
+          </div>
+        </div>
+        <span class="badge bg-dark">Oficial</span>
+      </div>
+
+      <div class="input-group mb-3">
+        <input type="text"
+               id="linkPublico"
+               class="form-control"
+               value="{{ request.scheme }}://{{ request.get_host }}/agendar/{{ barbearia.slug }}/"
+               readonly>
+
+        <button class="btn btn-outline-dark"
+                type="button"
+                onclick="copiarLink()">
+          Copiar
+        </button>
+
+        <a class="btn btn-dark"
+           target="_blank"
+           href="/agendar/{{ barbearia.slug }}/">
+          Abrir
+        </a>
+      </div>
+
+      <div class="small text-muted">
+        ✔ Esse é o link que seus clientes usam para marcar horário.<br>
+        ✔ Salve ele na bio do Instagram ou no WhatsApp Business.
+      </div>
+
+    </div>
+  </div>
+</div>
     <!-- SERVIÇOS -->
     <div class="col-lg-6">
       <div class="card border-0 shadow-sm rounded-4 h-100">
@@ -160,4 +203,13 @@
 
   </div>
 </div>
+<script>
+function copiarLink() {
+  const input = document.getElementById("linkPublico");
+  input.select();
+  input.setSelectionRange(0, 99999);
+  document.execCommand("copy");
+  alert("Link copiado com sucesso 🚀");
+}
+</script>
 {% endblock %}

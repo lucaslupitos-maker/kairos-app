@@ -80,7 +80,31 @@
             </div>
           </div>
 
-          {% if dia.agendamentos %}
+          
+
+{% if dia.bloqueios %}
+  {% for b in dia.bloqueios %}
+    <div class="card mb-2 border-0 shadow-sm">
+      <div class="card-body py-2">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <div class="fw-semibold">
+              {% if b.kind == "fixo" %}🔒 FIXO{% else %}⏸️ PAUSA{% endif %} — {{ b.titulo }}
+            </div>
+            <div class="text-muted small">{{ b.inicio|time:"H:i" }}–{{ b.fim|time:"H:i" }}</div>
+          </div>
+          {% if b.kind == "fixo" %}
+            <span class="badge text-bg-primary">Fixo</span>
+          {% else %}
+            <span class="badge text-bg-secondary">Pausa</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+{% endif %}
+
+{% if dia.agendamentos %}
             <div class="d-flex flex-column gap-2">
               {% for ag in dia.agendamentos %}
                 <div class="p-3 rounded-4 border ap-item">

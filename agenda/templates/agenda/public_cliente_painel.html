@@ -1,0 +1,120 @@
+{% extends "agenda/base.html" %}
+{% load static %}
+
+{% block title %}Kairós.app | Meus agendamentos{% endblock %}
+
+{% block content %}
+
+<div class="topbar mb-4">
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div>
+      <div class="hint">Bem-vindo,</div>
+      <h4 class="fw-bold mb-0">{{ cliente.nome|default:"Cliente" }}</h4>
+      <div class="hint mt-1">Aqui você consegue cancelar ou remarcar seus agendamentos 😄</div>
+    </div>
+    <div class="d-flex gap-2">
+      <a class="ka-btn ka-btn-primary" href="{% url 'public_escolher_servico' slug=barbearia.slug %}">Novo agendamento</a>
+      <a class="btn btn-outline-secondary" href="{% url 'public_cliente_logout' slug=barbearia.slug %}">Sair</a>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-12">
+    <div class="ap-card p-3">
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <h5 class="fw-bold mb-0">Seus próximos horários</h5>
+        <span class="badge text-bg-light">{{ barbearia.nome }}</span>
+      </div>
+
+      {% if agendamentos %}
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Quando</th>
+                <th>Serviço</th>
+                <th>Status</th>
+                <th class="text-end">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for a in agendamentos %}
+                <tr>
+                  <td>
+                    <div class="fw-semibold">{{ a.inicio|date:"d/m/Y" }}</div>
+                    <div class="hint">{{ a.inicio|date:"H:i" }} – {{ a.fim|date:"H:i" }}</div>
+                  </td>
+                  <td>
+                    <div class="fw-semibold">{{ a.servico.nome|default:"—" }}</div>
+                    {% if a.valor_no_momento %}
+                      <div class="hint">R$ {{ a.valor_no_momento }}</div>
+                    {% endif %}
+
+
+
+
+{% if agendamentos_recentes %}
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Quando</th>
+          <th>Serviço</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in agendamentos_recentes %}
+          <tr>
+            <td>
+              <div class="fw-semibold">{{ a.inicio|date:"d/m/Y" }}</div>
+              <div class="hint">{{ a.inicio|date:"H:i" }} – {{ a.fim|date:"H:i" }}</div>
+            </td>
+            <td>
+              <div class="fw-semibold">{{ a.servico.nome|default:"—" }}</div>
+            </td>
+            <td>
+              <span class="badge bg-secondary">{{ a.get_status_display }}</span>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="hint">Sem histórico recente por aqui.</div>
+{% endif %}
+
+                  </td>
+                  <td>
+                    {% if a.status == 'aguardando' %}
+                      <span class="badge text-bg-warning">Aguardando</span>
+                    {% elif a.status == 'confirmado' %}
+                      <span class="badge text-bg-success">Confirmado</span>
+                    {% elif a.status == 'cancelado' %}
+                      <span class="badge text-bg-secondary">Cancelado</span>
+                    {% else %}
+                      <span class="badge text-bg-light">{{ a.status }}</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-end">
+                    <div class="d-inline-flex gap-2">
+                      <a class="btn btn-sm btn-outline-primary" href="{% url 'public_cliente_remarcar' slug=barbearia.slug pk=a.id %}">Remarcar</a>
+                      <a class="btn btn-sm btn-outline-danger" href="{% url 'public_cliente_cancelar' slug=barbearia.slug pk=a.id %}">Cancelar</a>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="hint">Nada por aqui. Você está oficialmente livre (por enquanto) 😅</div>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}

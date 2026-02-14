@@ -1,0 +1,57 @@
+{% extends "agenda/base.html" %}
+{% load static %}
+
+{% block title %}Kairós.app | Portal do Cliente{% endblock %}
+
+{% block content %}
+
+<div class="topbar mb-4 text-center">
+  <div class="ap-success-icon mb-2">🔐</div>
+  <h4 class="fw-bold mb-1">Portal do Cliente</h4>
+  <div class="hint">Entre com seus dados para ver seus agendamentos</div>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-md-7 col-lg-5">
+    <div class="card ap-card ap-animate-in">
+      <div class="card-body">
+        <form method="post" class="vstack gap-3">
+          {% csrf_token %}
+
+          <div>
+            <label class="form-label fw-semibold">Seu nome</label>
+            {{ form.nome }}
+            {% if form.nome.errors %}
+              <div class="text-danger small mt-1">{{ form.nome.errors|striptags }}</div>
+            {% endif %}
+          </div>
+
+          <div>
+            <label class="form-label fw-semibold">Seu telefone</label>
+            {{ form.telefone }}
+            <div class="small text-muted mt-1">Dica: pode digitar com DDD. Ex: 19999999999</div>
+            {% if form.telefone.errors %}
+              <div class="text-danger small mt-1">{{ form.telefone.errors|striptags }}</div>
+            {% endif %}
+          </div>
+
+          <button type="submit" class="ka-btn ka-btn-primary">
+            Entrar
+          </button>
+
+          <div class="small text-muted text-center">
+            Seus dados são usados só para localizar seus agendamentos nesta barbearia.
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="d-grid gap-2 mt-3">
+      <a href="{% url 'public_escolher_servico' barbearia.slug %}" class="btn btn-outline-primary">
+        Fazer um novo agendamento
+      </a>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

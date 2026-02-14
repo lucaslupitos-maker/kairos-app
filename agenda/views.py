@@ -1,4 +1,5 @@
-from __future__ import annotations
+import re
+
 
 import json
 from datetime import datetime, timedelta, date
@@ -13,6 +14,7 @@ from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
+from urllib.parse import quote
 
 from .models import (
     Appointment,
@@ -22,7 +24,50 @@ from .models import (
     Service,
     Product,
     ProductSale,
+    PlanSubscription,
+    RecurringBlock,
 )
+
+
+# =========================
+# UTIL (telefone - portal público)
+# =========================
+
+def _digits_only(value):
+    if not value:
+        return ""
+    return "".join(ch for ch in str(value) if ch.isdigit())
+
+
+def _client_ids_by_phone(barbearia, telefone_raw):
+    # Retorna IDs de clientes (da barbearia) com o mesmo telefone, ignorando máscara.
+    digits = _digits_only(telefone_raw)
+    if not digits:
+        return []
+    ids = []
+    for c in Client.objects.filter(barbearia=barbearia).exclude(telefone__isnull=True).exclude(telefone=""):
+        if _digits_only(c.telefone) == digits:
+            ids.append(c.id)
+    return ids
+
+
+def _get_or_create_client_by_phone(barbearia, nome, telefone_raw):
+    # Reusa cliente existente pelo telefone (ignorando máscara) ou cria um novo.
+    tel_digits = _digits_only(telefone_raw)
+    ids = _client_ids_by_phone(barbearia, tel_digits)
+    cliente = Client.objects.filter(id__in=ids).order_by('-id').first()
+    if cliente:
+        changed = False
+        if tel_digits and cliente.telefone != tel_digits:
+            cliente.telefone = tel_digits
+            changed = True
+        if nome and cliente.nome != nome:
+            cliente.nome = nome
+            changed = True
+        if changed:
+            cliente.save(update_fields=['nome', 'telefone'])
+        return cliente
+    return Client.objects.create(barbearia=barbearia, nome=nome or 'Cliente', telefone=tel_digits)
 from .forms import (
     SignupEstabelecimentoForm,
     NovoAgendamentoForm,
@@ -30,10 +75,12 @@ from .forms import (
     RemarcarAgendamentoForm,
     PublicEscolherServicoForm,
     PublicConfirmarDadosForm,
+    PublicClienteLoginForm,
     ServiceForm,
     ProductForm,
     ProductSaleForm,
     WorkDayConfigForm,
+    RecurringBlockForm,
 )
 
 DECIMAL0 = Value(0, output_field=DecimalField(max_digits=12, decimal_places=2))
@@ -56,6 +103,26 @@ from django.views.decorators.http import require_POST
 def sair(request):
     logout(request)
     return redirect("login")  # ou sua home
+
+
+@login_required
+@require_POST
+def confirmar_agendamento(request, agendamento_id):
+    barbearia, resp = _require_shop(request)
+    if resp:
+        return resp
+
+    agendamento = get_object_or_404(Appointment, id=agendamento_id, barbearia=barbearia)
+
+    if agendamento.status == 'cancelado':
+        messages.warning(request, 'Esse agendamento já está cancelado.')
+    else:
+        agendamento.status = 'confirmado'
+        agendamento.save(update_fields=['status'])
+        messages.success(request, 'Atendimento confirmado! Agora ele conta no financeiro.')
+
+    next_url = request.POST.get('next') or request.META.get('HTTP_REFERER')
+    return redirect(next_url or 'homemcom_dashboard')
 
 # ==========================
 # HELPERS (MULTI-TENANT)
@@ -685,6 +752,49 @@ def remarcar_agendamento(request, pk):
 # VISÃO SEMANAL
 # ==========================
 
+from datetime import datetime, timedelta
+from django.utils import timezone
+
+# from .models import RecurringBlock
+
+
+def _slot_colide_com_bloqueio(slot_inicio, slot_fim, b_inicio, b_fim):
+    # colisão simples: [slot_inicio, slot_fim) cruza com [b_inicio, b_fim)
+    return (slot_inicio < b_fim) and (slot_fim > b_inicio)
+
+
+def aplicar_bloqueios_recorrentes(barbearia, data, horarios, duracao_minutos):
+    """
+    horarios: lista de datetimes (início de cada slot)
+    duracao_minutos: duração do serviço (int)
+    Retorna a lista filtrada removendo horários que caem em RecurringBlock (pausas/cliente fixo).
+    """
+    dow = data.weekday()
+    blocos = RecurringBlock.objects.filter(barbearia=barbearia, ativo=True, dia_semana=dow)
+
+    tz = timezone.get_current_timezone()
+    dur = timedelta(minutes=duracao_minutos or 30)
+
+    filtrados = []
+    for h in horarios:
+        # h pode ser naive dependendo do seu gerador; garantimos aware
+        slot_inicio = timezone.make_aware(h, tz) if timezone.is_naive(h) else h
+        slot_fim = slot_inicio + dur
+
+        bloqueado = False
+        for b in blocos:
+            b_inicio_dt = timezone.make_aware(datetime.combine(data, b.inicio), tz)
+            b_fim_dt = timezone.make_aware(datetime.combine(data, b.fim), tz)
+
+            if _slot_colide_com_bloqueio(slot_inicio, slot_fim, b_inicio_dt, b_fim_dt):
+                bloqueado = True
+                break
+
+        if not bloqueado:
+            filtrados.append(slot_inicio)
+
+    return filtrados
+
 @login_required
 def semana_view(request):
     barbearia, resp = _require_shop(request)
@@ -708,21 +818,52 @@ def semana_view(request):
     prev_ref = inicio_semana - timedelta(days=7)
     next_ref = inicio_semana + timedelta(days=7)
 
+    # ✅ puxa bloqueios ativos 1 vez
+    bloqueios_ativos = list(
+        RecurringBlock.objects.filter(barbearia=barbearia, ativo=True)
+        .order_by("dia_semana", "inicio")
+    )
+
     dias_semana = []
     for i in range(7):
         data = inicio_semana + timedelta(days=i)
+
         agendamentos = (
             Appointment.objects.filter(barbearia=barbearia, inicio__date=data)
             .select_related("cliente", "servico")
             .order_by("inicio")
         )
+
         total_dia = (
             agendamentos.filter(status="confirmado").aggregate(
                 total=Coalesce(Sum("valor_no_momento"), DECIMAL0)
             )["total"]
             or 0
         )
-        dias_semana.append({"data": data, "agendamentos": agendamentos, "total_dia": total_dia})
+
+        dow = data.weekday()  # 0=Seg ... 6=Dom
+        bloqueios = []
+        for b in bloqueios_ativos:
+            if b.dia_semana != dow:
+                continue
+
+            bloqueios.append(
+                {
+                    "kind": b.kind,
+                    "titulo": b.titulo,
+                    "inicio": b.inicio,
+                    "fim": b.fim,
+                }
+            )
+
+        dias_semana.append(
+            {
+                "data": data,
+                "agendamentos": agendamentos,
+                "total_dia": total_dia,
+                "bloqueios": bloqueios,
+            }
+        )
 
     context = {
         "barbearia": barbearia,
@@ -735,7 +876,6 @@ def semana_view(request):
         "ref_date": ref_date,
     }
     return render(request, "agenda/semana.html", context)
-
 
 # ==========================
 # CONFIGURAÇÕES
@@ -949,6 +1089,19 @@ def registrar_venda_produto(request):
 # LÓGICA DE HORÁRIOS LIVRES
 # ==========================
 
+
+
+
+def _is_slot_blocked_by_recurring(barbearia, dia_ref, slot_inicio, slot_fim) -> bool:
+    """True se [slot_inicio, slot_fim) colidir com algum RecurringBlock ativo."""
+    weekday = dia_ref.weekday()
+    blocks = RecurringBlock.objects.filter(barbearia=barbearia, ativo=True, dia_semana=weekday)
+    for b in blocks:
+        if (slot_inicio < b.fim) and (slot_fim > b.inicio):
+            return True
+    return False
+
+
 def gerar_horarios_disponiveis(barbearia, servico, data):
     configs = WorkDayConfig.objects.filter(
         barbearia=barbearia, dia_semana=data.weekday(), ativo=True
@@ -974,7 +1127,15 @@ def gerar_horarios_disponiveis(barbearia, servico, data):
         while inicio + duracao <= fim_bloco:
             fim = inicio + duracao
             conflito = agendamentos.filter(inicio__lt=fim, fim__gt=inicio).exists()
-            if not conflito:
+            # Bloqueios recorrentes (clientes fixos / pausas) também ocupam o horário
+            bloqueado = _is_slot_blocked_by_recurring(
+                barbearia,
+                data,
+                inicio.time(),
+                fim.time(),
+            )
+
+            if (not conflito) and (not bloqueado):
                 horarios_livres.append(inicio)
             inicio += duracao
 
@@ -1052,13 +1213,8 @@ def public_confirmar_dados(request, slug):
         if form.is_valid():
             nome = form.cleaned_data["nome"]
             telefone = form.cleaned_data["telefone"]
-
-            if telefone:
-                cliente, _ = Client.objects.get_or_create(
-                    barbearia=barbearia, telefone=telefone, defaults={"nome": nome}
-                )
-            else:
-                cliente = Client.objects.create(barbearia=barbearia, nome=nome)
+            # Reusa cliente existente pelo telefone (ignorando máscara) ou cria um novo
+            cliente = _get_or_create_client_by_phone(barbearia, nome, telefone)
 
             duracao = timedelta(minutes=servico.duracao_minutos or 30)
             fim = inicio + duracao
@@ -1069,15 +1225,37 @@ def public_confirmar_dados(request, slug):
                 servico=servico,
                 inicio=inicio,
                 fim=fim,
-                status="confirmado",
+                status="aguardando",
                 criado_via="cliente_link",
                 valor_no_momento=servico.preco,
             )
 
+            # Se veio do Portal do Cliente em modo "remarcar", cancela o agendamento antigo
+            old_id = request.session.pop("public_remarcar_antigo_id", None)
+            old_cid = request.session.pop("public_remarcar_cliente_id", None)
+            if old_id and old_cid and old_cid == cliente.id:
+                Appointment.objects.filter(id=old_id, barbearia=barbearia, cliente=cliente).update(status="cancelado")
+
             request.session["ultimo_agendamento_id"] = agendamento.id
+
+            # Se veio do Portal do Cliente (login por nome/telefone), volta pro painel.
+            if request.session.get("public_cliente_id") == cliente.id and request.session.get(
+                "public_cliente_slug"
+            ) == barbearia.slug:
+                try:
+                    messages.success(request, "Agendamento atualizado com sucesso!")
+                except Exception:
+                    pass
+                return redirect("public_cliente_painel", slug=barbearia.slug)
+
             return redirect("public_sucesso", slug=barbearia.slug)
     else:
-        form = PublicConfirmarDadosForm()
+        initial = {}
+        if request.session.get("public_cliente_nome"):
+            initial["nome"] = request.session.get("public_cliente_nome")
+        if request.session.get("public_cliente_tel"):
+            initial["telefone"] = request.session.get("public_cliente_tel")
+        form = PublicConfirmarDadosForm(initial=initial)
 
     return render(
         request,
@@ -1113,7 +1291,9 @@ def public_sucesso(request, slug):
             f"💈 {serv_nome}\n"
             f"🗓️ {when}\n"
             f"\n"
-            f"Qualquer coisa é só chamar aqui 😄"
+            f"Qualquer coisa é só chamar aqui 😄\n"
+            f"\n🔁 Para cancelar ou remarcar depois, use o Portal do Cliente:\n"
+            f"/agendar/{barbearia.slug}/cliente/\n"
         )
 
         msg_dono = (
@@ -1329,3 +1509,464 @@ def onboarding_finalizado(request, slug):
 
     link_publico = request.build_absolute_uri(f"/agendar/{shop.slug}/")
     return render(request, "agenda/onboarding_finalizado.html", {"barbearia": shop, "link_publico": link_publico})
+
+# ==========================
+# PLANOS (V1 / V2) — BLOCO 2
+# ==========================
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import redirect, render
+from django.urls import reverse
+from django.utils.http import urlencode
+
+from .models import PlanSubscription  # se seu model tiver outro nome me fala
+
+@login_required
+def homemcom_planos(request):
+    """Tela premium de Planos: o cliente vê o plano atual e pode pedir troca / pagar quando quiser."""
+    barbearia, resp = _require_shop(request)
+    if resp:
+        return resp
+
+    from .models import PlanSubscription  # import local pra não quebrar nada do arquivo
+
+    # garante assinatura
+    sub, _ = PlanSubscription.objects.get_or_create(shop=barbearia)
+
+    # preços (você pode trocar depois se quiser)
+    PRECO_V1 = 39.90
+    PRECO_V2 = 69.90
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+        target = request.POST.get("plan")
+
+        if action == "choose" and target in (PlanSubscription.PLAN_V1, PlanSubscription.PLAN_V2):
+            sub.requested_plan = target
+            sub.save(update_fields=["requested_plan", "updated_at"])
+            messages.success(request, f"Plano {target} selecionado. Agora é só pagar e eu libero pra você 😉")
+
+            # manda pro pagamento pendente, se existir no seu projeto
+            try:
+                return redirect(reverse("homemcom_pagamento_pendente") + f"?plan={target}")
+            except Exception:
+                return redirect("homemcom_dashboard")
+
+        if action == "pay_now":
+            try:
+                return redirect(reverse("homemcom_pagamento_pendente") + f"?plan={sub.requested_plan or sub.current_plan}")
+            except Exception:
+                return redirect("homemcom_dashboard")
+
+    features_v1 = [
+        "Link público de agendamento (cliente marca sozinho)",
+        "Agenda do dia + visão semanal",
+        "Serviços e horários de trabalho",
+        "Cadastro de clientes e histórico",
+        "Gestão financeira (serviços + produtos)",
+    ]
+
+    features_v2 = [
+        "Tudo do V1",
+        "Clientes fixos (bloqueio automático do horário)",
+        "Pausas configuráveis (almoço/ausência)",
+        "Confirmação de atendimento (concluído/no-show) antes de entrar no financeiro",
+        "Cancelamento de agendamento pelo cliente via link seguro",
+        "Dashboard financeiro avançado (versão 2)",
+    ]
+
+    context = {
+        "barbearia": barbearia,
+        "sub": sub,
+        "preco_v1": f"{PRECO_V1:.2f}",
+        "preco_v2": f"{PRECO_V2:.2f}",
+        "features_v1": features_v1,
+        "features_v2": features_v2,
+    }
+    return render(request, "agenda/homemcom_planos.html", context)
+
+# agenda/views.py
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render
+
+@login_required
+def planos(request):
+    shop = _get_active_shop(request)
+    if not shop:
+        return redirect("homemcom_dashboard")
+
+    sub, _ = PlanSubscription.objects.get_or_create(
+        shop=shop,
+        defaults={
+            "current_plan": "V1",
+            "status": "active",
+            "next_due_date": timezone.localdate(),
+        }
+    )
+
+    if request.method == "POST":
+        action = (request.POST.get("action") or "").strip()
+
+        if action == "pay_now":
+            plano = (sub.current_plan or "V1").upper().strip()
+            if plano not in ("V1", "V2"):
+                plano = "V1"
+            return redirect(f"/pagamento-pendente/?plano={plano}")
+
+        if action == "choose":
+            plan = (request.POST.get("plan") or "V1").upper().strip()
+            if plan not in ("V1", "V2"):
+                plan = "V1"
+
+            # ✅ aqui grava o pedido pra aparecer no admin
+            sub.requested_plan = plan
+            sub.status = "pending"
+            sub.save(update_fields=["requested_plan", "status", "updated_at"])
+
+            return redirect(f"/pagamento-pendente/?plano={plan}")
+
+    context = {
+        "sub": sub,
+        "preco_v1": "39,90",
+        "preco_v2": "69,90",
+        "features_v1": [
+            "Link público de agendamento (cliente marca sozinho)",
+            "Agenda do dia + visão semanal",
+            "Serviços e horários de trabalho",
+            "Cadastro de clientes e histórico",
+            "Gestão financeira (serviços + produtos)",
+        ],
+        "features_v2": [
+            "Tudo do V1",
+            "Clientes fixos (bloqueio automático de horário)",
+            "Pausas configuráveis (almoço/ausência)",
+            "Confirmação de atendimento (concluído/no-show) antes do financeiro",
+            "Cancelamento pelo cliente via link seguro",
+            "Dashboard financeiro avançado (versão 2)",
+        ],
+    }
+    return render(request, "agenda/planos.html", context)
+
+
+@login_required
+def selecionar_plano(request, plano: str):
+    """
+    plano: "V1" ou "V2"
+    Marca a escolha do cliente e manda pra tela de pagamento pendente já com o plano selecionado.
+    """
+    plano = (plano or "").upper().strip()
+    if plano not in ("V1", "V2"):
+        messages.error(request, "Plano inválido.")
+        return redirect("planos")
+
+    # Garante que existe registro de assinatura
+    sub, _ = PlanSubscription.objects.get_or_create(user=request.user)
+
+    sub.plano_atual = plano           # ou "plano" dependendo do seu model
+    sub.plano_desejado = plano        # se existir no seu model; senão remove essa linha
+    sub.save()
+
+    # redireciona para pagamento pendente com o plano escolhido
+    base = reverse("pagamento_pendente")
+    query = urlencode({"plano": plano})
+    return redirect(f"{base}?{query}")
+
+@login_required
+def pagamento_pendente(request):
+    """
+    Tela de pagamento manual (Pix + WhatsApp)
+    """
+    plano = (request.GET.get("plano") or "V1").upper().strip()
+    if plano not in ("V1", "V2"):
+        plano = "V1"
+
+    valor = "39,90" if plano == "V1" else "69,90"
+
+    # ====== SUAS INFOS REAIS ======
+    pix_banco = "Pix (Nubank)"
+    pix_beneficiario = "Lucas Castiglioni Toledo de Souza"
+    pix_chave = "42506340866"  # CPF
+    whatsapp_num = "5519981514883"  # 55 + DDD + número
+    # ==============================
+
+    msg = (
+        f"Olá Lucas! Efetuei o pagamento do Kairós.app.\n\n"
+        f"👤 Usuário: {request.user.username}\n"
+        f"📦 Plano: {plano} (R$ {valor})\n"
+        f"🧾 Envio o comprovante nesta mensagem.\n\n"
+        f"Pode liberar meu acesso? 🙏"
+    )
+
+    whatsapp_link = f"https://wa.me/{whatsapp_num}?text={quote(msg)}"
+
+    context = {
+        "plano": plano,
+        "valor_plano": valor,
+        "pix_banco": pix_banco,
+        "pix_beneficiario": pix_beneficiario,
+        "pix_chave": pix_chave,
+        "pix_chave_mask": pix_chave,  # se quiser mascarar depois, dá pra melhorar
+        "whatsapp_link": whatsapp_link,
+        "pix_qr_img": "img/pix_picpay_qr.png",  # ajuste se mudar o nome
+    }
+
+    return render(request, "agenda/pagamento_pendente.html", context)
+
+
+# ==========================
+# AGENDA INTELIGENTE (clientes fixos + pausas)
+# ==========================
+@login_required
+def agenda_inteligente_view(request):
+    barbearia, resp = _require_shop(request)
+    if resp:
+        return resp
+
+    if request.method == "POST":
+        form = RecurringBlockForm(request.POST)
+        if form.is_valid():
+            kind = form.cleaned_data["kind"]
+            titulo = form.cleaned_data["titulo"]
+            dias = [int(d) for d in form.cleaned_data["dias"]]
+            inicio = form.cleaned_data["inicio"]
+            fim = form.cleaned_data["fim"]
+            servico = form.cleaned_data.get("servico")
+            duracao = form.cleaned_data.get("duracao_minutos")
+            ativo = bool(form.cleaned_data.get("ativo", True))
+
+            for d in dias:
+                RecurringBlock.objects.create(
+                    barbearia=barbearia,
+                    kind=kind,
+                    titulo=titulo,
+                    dia_semana=d,
+                    inicio=inicio,
+                    fim=fim,
+                    servico=servico,
+                    duracao_minutos=duracao,
+                    ativo=ativo,
+                )
+
+            messages.success(request, "Bloqueio criado! Agora esse horário não aparece mais pro público.")
+            return redirect("homemcom_agenda_inteligente")
+    else:
+        form = RecurringBlockForm()
+
+    blocks = RecurringBlock.objects.filter(barbearia=barbearia).order_by("dia_semana", "inicio")
+    return render(request, "agenda/agenda_inteligente.html", {"barbearia": barbearia, "form": form, "blocks": blocks})
+
+
+@login_required
+def agenda_inteligente_toggle(request, pk: int):
+    barbearia, resp = _require_shop(request)
+    if resp:
+        return resp
+    b = get_object_or_404(RecurringBlock, pk=pk, barbearia=barbearia)
+    b.ativo = not b.ativo
+    b.save(update_fields=["ativo"])
+    return redirect("homemcom_agenda_inteligente")
+
+
+@login_required
+def agenda_inteligente_delete(request, pk: int):
+    barbearia, resp = _require_shop(request)
+    if resp:
+        return resp
+    b = get_object_or_404(RecurringBlock, pk=pk, barbearia=barbearia)
+    b.delete()
+    messages.success(request, "Bloqueio removido.")
+    return redirect("homemcom_agenda_inteligente")
+
+# ==========================
+# PORTAL DO CLIENTE (PÚBLICO)
+# Link estável: /agendar/<slug>/cliente/
+# Cliente faz login com nome + telefone e vê/remarca/cancela agendamentos.
+# ==========================
+
+def _public_get_cliente(request, barbearia):
+    cid = request.session.get("public_cliente_id")
+    if not cid:
+        return None
+    return Client.objects.filter(id=cid, barbearia=barbearia).first()
+
+
+def public_cliente_logout(request, slug):
+    # logout simples do portal público
+    request.session.pop("public_cliente_id", None)
+    request.session.pop("public_cliente_nome", None)
+    request.session.pop("public_cliente_tel", None)
+    messages.success(request, "Você saiu do seu painel. Até parte do cabelo! ✂️😄")
+    return redirect("public_cliente_login", slug=slug)
+
+
+def public_cliente_login(request, slug):
+    barbearia = get_object_or_404(BarberShop, slug=slug)
+
+    # já logado? vai pro painel
+    if _public_get_cliente(request, barbearia):
+        return redirect("public_cliente_painel", slug=slug)
+
+    if request.method == "POST":
+        form = PublicClienteLoginForm(request.POST)
+        if form.is_valid():
+            nome = form.cleaned_data["nome"]
+            telefone = form.cleaned_data["telefone"]
+
+            # tenta achar o cliente por telefone; se não existir, cria
+            # Obs: normalizamos telefone (somente dígitos). Mesmo assim, clientes antigos podem ter sido
+            # salvos com máscara ("(19) 99999-9999"), então fazemos um fallback comparando dígitos.
+            qs = (
+                Client.objects.filter(barbearia=barbearia)
+                .exclude(telefone__isnull=True)
+                .exclude(telefone__exact="")
+            )
+            cliente = qs.filter(telefone=telefone).first()
+            if not cliente:
+                # fallback: compara apenas dígitos
+                for c in qs.only("id", "telefone", "nome"):
+                    digits = re.sub(r"\D+", "", c.telefone or "")
+                    if len(digits) > 11 and digits.startswith("55"):
+                        digits = digits[2:]
+                    if digits == telefone:
+                        cliente = c
+                        break
+
+            if not cliente:
+                cliente = Client.objects.create(barbearia=barbearia, nome=nome, telefone=telefone)
+            else:
+                # atualiza nome caso esteja vazio
+                if nome and (not cliente.nome):
+                    cliente.nome = nome
+                    cliente.save(update_fields=["nome"])
+
+            request.session["public_cliente_id"] = cliente.id
+            request.session["public_cliente_nome"] = cliente.nome
+            request.session["public_cliente_tel"] = _digits_only(cliente.telefone)
+            return redirect("public_cliente_painel", slug=slug)
+    else:
+        form = PublicClienteLoginForm(initial={
+            "nome": request.session.get("public_cliente_nome", ""),
+            "telefone": request.session.get("public_cliente_tel", ""),
+        })
+
+    return render(request, "agenda/public_cliente_login.html", {"barbearia": barbearia, "form": form})
+
+
+def public_cliente_painel(request, slug):
+    barbearia = get_object_or_404(BarberShop, slug=slug)
+
+    cliente = _public_get_cliente(request, barbearia)
+    if not cliente:
+        return redirect("public_cliente_login", slug=slug)
+
+    tel_digits = request.session.get("public_cliente_tel") or ""
+    client_ids = _client_ids_by_phone(barbearia, tel_digits)
+
+    now = timezone.localtime(timezone.now())
+
+    base_qs = Appointment.objects.filter(
+        barbearia=barbearia,
+        cliente_id__in=client_ids,
+    ).exclude(status="cancelado")
+
+    # Mostra apenas agendamentos atuais (em andamento) e próximos.
+    # Usamos fim__gte agora para incluir horários que já começaram e ainda não terminaram.
+    agendamentos = base_qs.filter(fim__gte=now).order_by("inicio")
+
+    ctx = {
+        "barbearia": barbearia,
+        "cliente": cliente,
+        "agendamentos": agendamentos,
+        "now": now,
+    }
+    return render(request, "agenda/public_cliente_painel.html", ctx)
+
+
+def public_cliente_cancelar(request, slug, pk):
+    barbearia = get_object_or_404(BarberShop, slug=slug)
+    cliente = _public_get_cliente(request, barbearia)
+
+    # pega TODOS os clientes com o mesmo telefone (evita duplicidade e garante que os agendamentos apareçam)
+    tel_session = request.session.get("public_cliente_tel") or (cliente.telefone if cliente else "")
+    cliente_ids = _client_ids_by_phone(barbearia, tel_session)
+    if not cliente_ids and cliente:
+        cliente_ids = [cliente.id]
+
+    if not cliente:
+        return redirect("public_cliente_login", slug=slug)
+
+    # Segurança + robustez: o mesmo telefone pode ter gerado registros duplicados de Client.
+    # No portal, a identidade do cliente é o TELEFONE, então a gente permite a ação
+    # apenas se o agendamento estiver vinculado a QUALQUER Client com esse telefone.
+    ag = get_object_or_404(Appointment, id=pk, barbearia=barbearia, cliente_id__in=cliente_ids)
+
+    if request.method == "POST":
+        # cancela
+        ag.status = "cancelado"
+        ag.save(update_fields=["status"])
+        messages.success(request, "Prontinho! Agendamento cancelado ✅")
+        return redirect("public_cliente_painel", slug=slug)
+
+    return render(request, "agenda/public_cliente_cancelar.html", {"barbearia": barbearia, "cliente": cliente, "ag": ag})
+
+
+def public_cliente_remarcar(request, slug, pk):
+    barbearia = get_object_or_404(BarberShop, slug=slug)
+    cliente = _public_get_cliente(request, barbearia)
+
+    # pega TODOS os clientes com o mesmo telefone (evita duplicidade e garante que os agendamentos apareçam)
+    tel_session = request.session.get("public_cliente_tel") or (cliente.telefone if cliente else "")
+    cliente_ids = _client_ids_by_phone(barbearia, tel_session)
+    if not cliente_ids and cliente:
+        cliente_ids = [cliente.id]
+
+    if not cliente:
+        return redirect("public_cliente_login", slug=slug)
+
+    # Mesma regra do cancelar: proteger contra clientes duplicados pelo mesmo telefone.
+    ag = get_object_or_404(Appointment, id=pk, barbearia=barbearia, cliente_id__in=cliente_ids)
+
+    # ✅ NOVO (e correto): remarcar usando o MESMO fluxo de horários disponíveis do agendamento público.
+    # Isso evita sobrescrever horários já ocupados e respeita travas (horário mínimo, duração, etc.).
+    request.session["public_remarcar_antigo_id"] = ag.id
+    request.session["public_remarcar_cliente_id"] = ag.cliente_id
+    request.session["public_servico_id"] = ag.servico_id
+
+    # pré-preenche o formulário de confirmação com os dados do cliente do portal
+    if tel_session:
+        request.session["public_cliente_tel"] = tel_session
+    if cliente and cliente.nome:
+        request.session["public_cliente_nome"] = cliente.nome
+
+    # Vai direto para a tela que lista horários LIVRES.
+    return redirect("public_escolher_horario", slug=slug)
+
+from urllib.parse import quote
+
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render
+from django.urls import reverse
+
+
+@login_required
+def guia_sistema(request):
+    """
+    Guia interno (Premium) para o profissional aprender a usar o sistema
+    e reduzir dúvidas de configuração.
+    """
+    # ✅ Seus dados
+    suporte_whatsapp = "5519981514883"  # 55 + DDD + número (só dígitos)
+    msg = (
+        "Olá Lucas! Preciso de ajuda com o Kairós.app.\n\n"
+        f"👤 Usuário: {request.user.username}\n"
+        "📌 Assunto: (descreva aqui rapidinho)\n"
+    )
+    whatsapp_link = f"https://wa.me/{suporte_whatsapp}?text={quote(msg)}"
+
+    # Link público (exemplo) — se você tem slug no context processor, substituímos depois
+    # Por enquanto fica como texto explicativo no template.
+    context = {
+        "whatsapp_link": whatsapp_link,
+        "suporte_whatsapp": suporte_whatsapp,
+    }
+    return render(request, "agenda/guia_sistema.html", context)

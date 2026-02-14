@@ -1,13 +1,5 @@
 from django.contrib import admin
-from .models import (
-    BarberShop,
-    Service,
-    Client,
-    WorkDayConfig,
-    Appointment,
-    Cancellation,
-    Product,
-    ProductSale,
+from .models import (PlanSubscription, BarberShop, Service, Client, WorkDayConfig, Appointment, Cancellation, Product, ProductSale,
 )
 
 
@@ -68,3 +60,9 @@ class ProductSaleAdmin(admin.ModelAdmin):
     list_display = ('produto', 'quantidade', 'valor_total', 'data_hora', 'barbearia')
     list_filter = ('barbearia', 'produto', 'data_hora')
     search_fields = ('produto__nome',)
+
+@admin.register(PlanSubscription)
+class PlanSubscriptionAdmin(admin.ModelAdmin):
+    list_display = ("shop", "current_plan", "requested_plan", "next_due_date", "is_exempt", "updated_at")
+    list_filter = ("current_plan", "requested_plan", "is_exempt")
+    search_fields = ("shop__nome", "shop__slug", "shop__dono__username")

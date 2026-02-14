@@ -183,6 +183,7 @@
         <span class="navbar-toggler-icon"></span>
       </button>
 
+
       <div class="collapse navbar-collapse" id="kaNav">
         <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-1 mt-3 mt-lg-0">
           <li class="nav-item">
@@ -192,30 +193,38 @@
           <li class="nav-item">
             <a class="nav-link ka-navlink {% if request.resolver_match.url_name == 'homemcom_semana' %}active{% endif %}"
                href="{% url 'homemcom_semana' %}">Semana</a>
+
           </li>
-          <li class="nav-item">
-            <a class="nav-link ka-navlink {% if request.resolver_match.url_name == 'homemcom_novo_agendamento' %}active{% endif %}"
-               href="{% url 'homemcom_novo_agendamento' %}">Novo agendamento</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link ka-navlink {% if request.resolver_match.url_name == 'homemcom_venda_produto' %}active{% endif %}"
-               href="{% url 'homemcom_venda_produto' %}">Venda de produto</a>
-          </li>
+<li class="nav-item">
+  <a href="{% url 'homemcom_agenda_inteligente' %}" class="nav-link ka-navlink">
+    <span class="nav-icon">🧠</span>
+    <span>Agenda inteligente</span>
+  </a>
+</li>
+
           <li class="nav-item">
             <a class="nav-link ka-navlink {% if request.resolver_match.url_name == 'homemcom_relatorios' %}active{% endif %}"
                href="{% url 'homemcom_relatorios' %}">Relatórios</a>
           </li>
           <li class="nav-item">
+            <a class="nav-link ka-navlink {% if request.resolver_match.url_name == 'homemcom_planos' %}active{% endif %}"
+               href="{% url 'homemcom_planos' %}">Planos</a>
+
+          </li>
+          <li class="nav-item">
             <a class="nav-link ka-navlink {% if request.resolver_match.url_name == 'homemcom_configuracoes' %}active{% endif %}"
                href="{% url 'homemcom_configuracoes' %}">Configurações</a>
           </li>
-
+        </li>
+          <li class="nav-item">
+            <a class="nav-link ka-navlink {% if request.resolver_match.url_name == 'homemcom_guia_sistema' %}active{% endif %}"
+               href="{% url 'homemcom_guia_sistema' %}">Guia Prático</a>
           <!-- CTA: Botões chamativos -->
           <li class="nav-item ka-cta">
             <a class="ka-btn ka-btn-primary" href="{% url 'homemcom_novo_agendamento' %}">
               ➕ <span>Agendamento</span>
             </a>
-            <a class="ka-btn ka-btn-ghost" href="{% url 'homemcom_venda_produto' %}">
+            <a class="ka-btn ka-btn-primary" href="{% url 'homemcom_venda_produto' %}">
               🧾 <span>Venda</span>
           
             </a>

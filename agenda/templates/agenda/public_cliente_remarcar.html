@@ -1,0 +1,57 @@
+{% extends "agenda/base.html" %}
+{% load static %}
+
+{% block title %}Kairós.app | Remarcar agendamento{% endblock %}
+
+{% block content %}
+
+<div class="topbar mb-4 text-center">
+  <div class="ap-success-icon mb-2">📅</div>
+  <h4 class="fw-bold mb-1">Remarcar agendamento</h4>
+  <div class="hint">Escolha uma nova data e horário</div>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <div class="card ap-card ap-animate-in">
+      <div class="card-body">
+
+        <div class="mb-4">
+          <div class="fw-semibold">Agendamento atual</div>
+          <div class="text-muted">
+            {{ appointment.servico.nome }} — {{ appointment.inicio|date:"d/m/Y" }} às {{ appointment.inicio|time:"H:i" }}
+          </div>
+        </div>
+
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        <form method="post" class="row g-3">
+          {% csrf_token %}
+
+          <div class="col-12">
+            <label class="form-label">{{ form.data.label }}</label>
+            {{ form.data }}
+            {% if form.data.errors %}<div class="text-danger small">{{ form.data.errors }}</div>{% endif %}
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">{{ form.hora.label }}</label>
+            {{ form.hora }}
+            {% if form.hora.errors %}<div class="text-danger small">{{ form.hora.errors }}</div>{% endif %}
+          </div>
+
+          <div class="col-12 d-grid gap-2 mt-2">
+            <button type="submit" class="btn btn-primary btn-lg">Confirmar novo horário</button>
+            <a class="btn btn-outline-secondary" href="{% url 'public_cliente_painel' barbearia.slug %}">Voltar ao painel</a>
+          </div>
+
+        </form>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,125 @@
+{% extends "agenda/base.html" %}
+{% load static %}
+
+{% block title %}Kairós.app | Pagamento pendente{% endblock %}
+
+{% block content %}
+<style>
+  .pay-wrap{
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 18px;
+  }
+  .pay-hero{
+    border-radius: 20px;
+    padding: 26px;
+    background: linear-gradient(135deg, rgba(45,108,223,.10), rgba(120,64,255,.08));
+    border: 1px solid rgba(0,0,0,.06);
+  }
+  .pay-card{
+    border-radius: 18px;
+    border: 1px solid rgba(0,0,0,.08);
+    box-shadow: 0 12px 30px rgba(0,0,0,.06);
+  }
+  .pay-qr{
+    width: 220px;
+    height: 220px;
+    object-fit: contain;
+    border-radius: 16px;
+    border: 1px dashed rgba(0,0,0,.15);
+    background: #fff;
+    padding: 10px;
+  }
+  .copy-btn{
+    border-radius: 12px;
+  }
+  .pill{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    border-radius: 999px;
+    padding: 8px 12px;
+    background: rgba(0,0,0,.05);
+    font-size: .9rem;
+  }
+  .muted{ color: rgba(0,0,0,.55); }
+</style>
+
+<div class="pay-wrap">
+  <div class="pay-hero mb-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <div>
+        <h3 class="fw-bold mb-1">Pagamento pendente</h3>
+        <div class="muted">Para continuar usando o Kairós.app, regularize seu plano.</div>
+      </div>
+      <span class="pill">🔒 Acesso bloqueado</span>
+    </div>
+  </div>
+
+  <div class="card pay-card">
+    <div class="card-body p-4">
+      <div class="row g-4 align-items-center">
+        <div class="col-12 col-lg-5 text-center">
+          <img
+  src="{% static 'img/pix_picpay_qr.png' %}"
+  alt="QR Code Pix PicPay"
+  class="pay-qr"
+/>
+          <div class="mt-3 muted small">
+            Abra o app do seu banco → Pix → “Ler QR Code”  -PIX Pic Pay
+          </div>
+        </div>
+
+        <div class="col-12 col-lg-7">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div class="fw-bold">PIX ({{ pix_banco|default:"" }})</div>
+            <span class="pill">⚡ Liberação manual</span>
+          </div>
+
+          {% if pix_beneficiario %}
+            <div class="muted small mb-3">Beneficiário: <span class="fw-semibold">{{ pix_beneficiario }}</span></div>
+          {% endif %}
+
+
+          <div class="mb-2 muted small">Chave Pix</div>
+          <div class="d-flex gap-2 flex-wrap">
+            <div class="form-control" style="border-radius:12px; max-width: 520px;">
+              <span class="fw-semibold">{{ pix_chave_mask }}</span>
+            </div>
+
+            <button class="ka-btn ka-btn-primary" type="button" onclick="copyPix()">
+              📋 Copiar chave
+            </button>
+          </div>
+{% if whatsapp_link %}
+  <a class="btn btn-success mt-2" href="{{ whatsapp_link }}" target="_blank" style="border-radius:12px;">
+    💬 Avisar no WhatsApp (enviar comprovante)
+  </a>
+{% endif %}
+
+          <div class="mt-3 muted">
+            Após o pagamento, eu libero o acesso rapidinho. (R$ 39,90 Versão 1 / R$69,90 versão 2)
+          </div>
+
+ 
+
+          <input id="pixHidden" type="hidden" value="{{ pix_chave }}">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function copyPix(){
+    const v = document.getElementById("pixHidden").value || "";
+    if(!v){ alert("Chave Pix não configurada."); return; }
+    navigator.clipboard.writeText(v).then(()=>{
+      alert("Chave Pix copiada! ✅");
+    }).catch(()=>{
+      alert("Não consegui copiar automaticamente 😅 Copie manualmente.");
+    });
+  }
+</script>
+
+{% endblock %}

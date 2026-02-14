@@ -67,6 +67,18 @@
   </div>
   {% endif %}
 
+
+  {% if agendamento %}
+  <div class="d-grid gap-2 mt-3">
+    <a href="{% url 'public_cliente_login' barbearia.slug %}" class="btn btn-outline-primary btn-lg">
+      🔒 Portal do Cliente — Cancelar / Remarcar
+    </a>
+    <div class="small text-muted text-center">
+      (guarda esse link: é onde você gerencia seus agendamentos)
+    </div>
+  </div>
+  {% endif %}
+
 <!-- AÇÃO FINAL -->
 <section>
   <div class="d-grid gap-2">

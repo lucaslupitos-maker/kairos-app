@@ -1,0 +1,20 @@
+
+{% for ag in agenda_do_dia %}
+  <div class="card-agendamento">
+    <strong>{{ ag.inicio|time:"H:i" }}</strong> – {{ ag.cliente.nome }}<br>
+    {{ ag.servico.nome }}
+
+    <div class="acoes mt-2">
+      {% if ag.status != "confirmado" %}
+        <form method="post" action="{% url 'confirmar_agendamento' ag.id %}">
+          {% csrf_token %}
+          <button class="btn btn-success btn-sm">Confirmar</button>
+        </form>
+      {% else %}
+        <span class="badge bg-success">Confirmado</span>
+      {% endif %}
+    </div>
+  </div>
+{% empty %}
+  <p>Nenhum agendamento para hoje.</p>
+{% endfor %}
